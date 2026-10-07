@@ -5,6 +5,7 @@ import 'package:wildguard_mobile_frontend/models/incident_model.dart';
 import 'package:wildguard_mobile_frontend/repositories/incident_repository.dart';
 import 'package:wildguard_mobile_frontend/screens/login_screen.dart';
 import 'package:wildguard_mobile_frontend/services/api_service.dart';
+import 'package:wildguard_mobile_frontend/services/location_service.dart';
 import 'package:wildguard_mobile_frontend/viewmodels/auth_manager.dart';
 import 'package:wildguard_mobile_frontend/viewmodels/offline_sync_manager.dart';
 
@@ -21,12 +22,24 @@ class MockTestIncidentRepo implements IncidentRepository {
   Future<void> markIncidentAsSynced(String localId, String serverId, {bool? duplicateFlag}) async {}
   @override
   Future<void> markIncidentAsFailed(String localId) async {}
+  @override
+  Future<List<IncidentModel>> fetchRemoteIncidentHistory() async => [];
+}
+
+class FakeLoginLocationService extends LocationService {
+  @override
+  Future<Map<String, double>?> getCurrentCoordinates() async {
+    return {'latitude': 6.3721, 'longitude': 81.4012};
+  }
 }
 
 void main() {
   Widget createLoginTestWidget({AuthManager? authManager}) {
     final auth = authManager ?? AuthManager(apiService: ApiService());
-    final syncManager = OfflineSyncManager(repository: MockTestIncidentRepo());
+    final syncManager = OfflineSyncManager(
+      repository: MockTestIncidentRepo(),
+      locationService: FakeLoginLocationService(),
+    );
 
     return MultiProvider(
       providers: [
@@ -64,7 +77,8 @@ void main() {
 
       await tester.ensureVisible(bypassFinder);
       await tester.tap(bypassFinder);
-      await tester.pumpAndSettle();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
 
       expect(authManager.isOfflineGuestMode, isTrue);
     });

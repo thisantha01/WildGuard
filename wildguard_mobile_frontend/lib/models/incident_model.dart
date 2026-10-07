@@ -76,6 +76,29 @@ class IncidentModel {
     );
   }
 
+  /// Deserializes from Spring Boot backend JSON response (`/api/incidents/my-history`).
+  factory IncidentModel.fromApiJson(Map<String, dynamic> json) {
+    return IncidentModel(
+      localIncidentId: json['localIncidentId'] as String? ?? 'srv-${json['id']}',
+      serverIncidentId: json['id'] as String?,
+      rangerId: json['rangerId'] as String?,
+      type: IncidentType.fromCode(json['type'] as String? ?? 'SNARE'),
+      severity: IncidentSeverity.fromCode(json['severity'] as String? ?? 'HIGH'),
+      description: json['description'] as String? ?? '',
+      latitude: (json['latitude'] as num?)?.toDouble() ?? 0.0,
+      longitude: (json['longitude'] as num?)?.toDouble() ?? 0.0,
+      photoBase64: json['photoBase64'] as String?,
+      timestamp: json['timestamp'] != null
+          ? DateTime.parse(json['timestamp'] as String).toLocal()
+          : DateTime.now(),
+      syncStatus: SyncStatus.fromCode(json['syncStatus'] as String? ?? 'SYNCED'),
+      syncedAt: json['syncedAt'] != null
+          ? DateTime.parse(json['syncedAt'] as String).toLocal()
+          : DateTime.now(),
+      duplicateFlag: json['duplicateFlag'] as bool? ?? false,
+    );
+  }
+
   /// Serializes into REST API payload for Spring Boot backend (`/api/incidents/sync`).
   Map<String, dynamic> toApiPayload() {
     return {

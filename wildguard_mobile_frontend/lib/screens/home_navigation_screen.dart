@@ -4,6 +4,7 @@ import '../core/constants/app_colors.dart';
 import '../core/constants/app_strings.dart';
 import '../viewmodels/auth_manager.dart';
 import 'log_incident_screen.dart';
+import 'patrol_dashboard_screen.dart';
 import 'placeholders/analytics_placeholder_screen.dart';
 import 'placeholders/community_alerts_placeholder_screen.dart';
 import 'placeholders/community_placeholder_screen.dart';
@@ -71,15 +72,25 @@ class _HomeNavigationScreenState extends State<HomeNavigationScreen> {
         ),
       ];
     } else {
-      // Field Ranger (ROLE_RANGER or Offline Field Mode): Field Incident logging and Sync Manager (UC01)
-      return const [
+      // Field Ranger (ROLE_RANGER or Offline Field Mode): Patrol Hub, Incident Logging, and Sync Manager (UC01)
+      return [
         _RoleNavDestination(
-          screen: LogIncidentScreen(),
+          screen: PatrolDashboardScreen(
+            onNavigateTab: (index) => setState(() => _currentIndex = index),
+          ),
+          label: AppStrings.tabPatrolDashboard,
+          icon: Icons.dashboard_outlined,
+          activeIcon: Icons.dashboard_rounded,
+        ),
+        _RoleNavDestination(
+          screen: LogIncidentScreen(
+            onReturnToDashboard: () => setState(() => _currentIndex = 0),
+          ),
           label: AppStrings.tabLogIncident,
           icon: Icons.add_location_alt_outlined,
           activeIcon: Icons.add_location_alt_rounded,
         ),
-        _RoleNavDestination(
+        const _RoleNavDestination(
           screen: SyncManagerScreen(),
           label: AppStrings.tabSyncManager,
           icon: Icons.sync_outlined,

@@ -28,6 +28,8 @@ class MockIncidentRepository implements IncidentRepository {
   Future<void> markIncidentAsSynced(String localId, String serverId, {bool? duplicateFlag}) async {}
   @override
   Future<void> markIncidentAsFailed(String localId) async {}
+  @override
+  Future<List<IncidentModel>> fetchRemoteIncidentHistory() async => [];
 }
 
 void main() {
@@ -71,5 +73,67 @@ void main() {
 
     // Verify Status Tag: PENDING tag rendered
     expect(find.text('PENDING'), findsOneWidget);
+  });
+
+  testWidgets('SyncManagerScreen renders empty state and Fetch My Reports button when no incidents exist', (WidgetTester tester) async {
+    final mockRepo = MockIncidentRepository([]);
+    final manager = OfflineSyncManager(repository: mockRepo);
+    await manager.loadIncidents(fetchRemote: false);
+
+    final authManager = AuthManager(apiService: ApiService());
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MultiProvider(
+          providers: [
+            ChangeNotifierProvider<OfflineSyncManager>.value(value: manager),
+            ChangeNotifierProvider<AuthManager>.value(value: authManager),
+          ],
+          child: const SyncManagerScreen(),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text(AppStrings.emptyIncidentListText), findsOneWidget);
+    expect(find.text('Fetch My Reports from Base Station'), findsOneWidget);
+  });
+
+  testWidgets('SyncManagerScreen renders RETRY button and failure prompt for FAILED incident', (WidgetTester tester) async {
+    final failedIncident = IncidentModel(
+      localIncidentId: 'loc-failed-1',
+      type: IncidentType.poacherTrack,
+      severity: IncidentSeverity.critical,
+      description: 'Poacher tracks spotted',
+      latitude: 6.3685,
+      longitude: 81.5273,
+      timestamp: DateTime.now(),
+      syncStatus: SyncStatus.failed,
+    );
+
+    final mockRepo = MockIncidentRepository([failedIncident]);
+    final manager = OfflineSyncManager(repository: mockRepo);
+    await manager.loadIncidents();
+
+    final authManager = AuthManager(apiService: ApiService());
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MultiProvider(
+          providers: [
+            ChangeNotifierProvider<OfflineSyncManager>.value(value: manager),
+            ChangeNotifierProvider<AuthManager>.value(value: authManager),
+          ],
+          child: const SyncManagerScreen(),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    // Verify FAILED tag rendered
+    expect(find.text('FAILED'), findsOneWidget);
+    // Verify RETRY button rendered
+    expect(find.text('RETRY'), findsOneWidget);
+    expect(find.byKey(const Key('retry_button_loc-failed-1')), findsOneWidget);
   });
 }

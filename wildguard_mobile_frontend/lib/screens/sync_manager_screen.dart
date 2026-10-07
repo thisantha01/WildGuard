@@ -12,7 +12,51 @@ import 'login_screen.dart';
 class SyncManagerScreen extends StatelessWidget {
   const SyncManagerScreen({super.key});
 
+  void _showLoginRequiredDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.lock_clock_outlined, color: AppColors.primary),
+            SizedBox(width: 8),
+            Text('Ranger Login Required'),
+          ],
+        ),
+        content: const Text(
+          'Base station synchronization requires Ranger authorization. Please log in with your Ranger credentials (e.g. ranger1 / Password@123) to upload pending reports to the central server.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+            ),
+            icon: const Icon(Icons.login),
+            label: const Text('Log In Now'),
+            onPressed: () {
+              Navigator.of(ctx).pop();
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const LoginScreen()),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
   void _onSyncAll(BuildContext context, OfflineSyncManager manager) async {
+    final authManager = context.read<AuthManager>();
+    if (!authManager.isAuthenticated || authManager.isOfflineGuestMode || authManager.token == null) {
+      _showLoginRequiredDialog(context);
+      return;
+    }
+
     final count = await manager.syncPendingIncidents();
     if (!context.mounted) return;
 
@@ -41,6 +85,10 @@ class SyncManagerScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final manager = context.watch<OfflineSyncManager>();
+    final authManager = context.watch<AuthManager>();
+    final isUnauthenticated = !authManager.isAuthenticated ||
+        authManager.isOfflineGuestMode ||
+        authManager.token == null;
 
     return Scaffold(
       appBar: AppBar(
@@ -51,8 +99,24 @@ class SyncManagerScreen extends StatelessWidget {
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh_rounded),
-            tooltip: 'Reload List',
-            onPressed: () => manager.loadIncidents(),
+            tooltip: 'Sync with Server',
+            onPressed: () async {
+              await manager.loadIncidents(fetchRemote: true);
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      manager.incidents.isEmpty
+                          ? 'No reports found. If you submitted reports earlier, please verify you are logged in.'
+                          : 'Synchronized ${manager.incidents.length} incident record(s).',
+                    ),
+                    backgroundColor: AppColors.primary,
+                    duration: const Duration(seconds: 2),
+                    behavior: SnackBarBehavior.floating,
+                  ),
+                );
+              }
+            },
           ),
           IconButton(
             icon: const Icon(Icons.logout),
@@ -99,26 +163,96 @@ class SyncManagerScreen extends StatelessWidget {
             ),
           ),
 
+          if (isUnauthenticated)
+            Container(
+              margin: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFF3CD),
+                borderRadius: BorderRadius.circular(AppConstants.borderRadius),
+                border: Border.all(color: const Color(0xFFFFEEBA), width: 1.5),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.info_outline, color: Color(0xFF856404), size: 22),
+                  const SizedBox(width: 10),
+                  const Expanded(
+                    child: Text(
+                      'Offline Field Mode active. Log in to sync records with Base Station.',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF856404),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    onPressed: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => const LoginScreen()),
+                      );
+                    },
+                    child: const Text('LOG IN', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                  ),
+                ],
+              ),
+            ),
+
           // Incident List
           Expanded(
             child: manager.isLoading
                 ? const Center(child: CircularProgressIndicator())
                 : manager.incidents.isEmpty
                     ? Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.inventory_2_outlined, size: 64, color: Colors.grey.shade400),
-                            const SizedBox(height: 12),
-                            const Text(
-                              AppStrings.emptyIncidentListText,
-                              style: TextStyle(color: AppColors.textSecondary, fontSize: 15),
-                            ),
-                          ],
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.inventory_2_outlined, size: 64, color: Colors.grey.shade400),
+                              const SizedBox(height: 12),
+                              const Text(
+                                AppStrings.emptyIncidentListText,
+                                style: TextStyle(color: AppColors.textSecondary, fontSize: 15),
+                                textAlign: TextAlign.center,
+                              ),
+                              const SizedBox(height: 16),
+                              OutlinedButton.icon(
+                                onPressed: manager.isLoading
+                                    ? null
+                                    : () async {
+                                        await manager.loadIncidents(fetchRemote: true);
+                                        if (context.mounted && manager.incidents.isEmpty) {
+                                          ScaffoldMessenger.of(context).showSnackBar(
+                                            const SnackBar(
+                                              content: Text('No previous reports found on base station server.'),
+                                              duration: Duration(seconds: 2),
+                                              behavior: SnackBarBehavior.floating,
+                                            ),
+                                          );
+                                        }
+                                      },
+                                icon: const Icon(Icons.cloud_download_outlined),
+                                label: const Text('Fetch My Reports from Base Station'),
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: AppColors.primary,
+                                  side: const BorderSide(color: AppColors.primary),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       )
                     : RefreshIndicator(
-                        onRefresh: () => manager.loadIncidents(),
+                        onRefresh: () => manager.loadIncidents(fetchRemote: true),
                         child: ListView.builder(
                           padding: const EdgeInsets.symmetric(vertical: 8.0),
                           itemCount: manager.incidents.length,

@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../core/constants/app_colors.dart';
 import '../core/constants/app_constants.dart';
 import '../viewmodels/auth_manager.dart';
+import '../viewmodels/offline_sync_manager.dart';
 import 'home_navigation_screen.dart';
 import 'register_screen.dart';
 
@@ -37,6 +38,7 @@ class _LoginScreenState extends State<LoginScreen> {
     );
 
     if (success && mounted) {
+      context.read<OfflineSyncManager>().loadIncidents(fetchRemote: true);
       messenger.showSnackBar(
         SnackBar(
           content: Text('Welcome, ${authManager.rangerDisplayName}!'),
@@ -193,7 +195,43 @@ class _LoginScreenState extends State<LoginScreen> {
                       fillColor: Colors.white,
                     ),
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 8),
+
+                  // Quick Viva / Demo Credentials Chip
+                  InkWell(
+                    key: const Key('demo_ranger_credentials_chip'),
+                    onTap: () {
+                      _usernameController.text = 'ranger1';
+                      _passwordController.text = 'Password@123';
+                    },
+                    borderRadius: BorderRadius.circular(8),
+                    child: Container(
+                      margin: const EdgeInsets.only(top: 4, bottom: 8),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.green.shade50,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.green.shade200),
+                      ),
+                      child: const Row(
+                        children: [
+                          Icon(Icons.touch_app_outlined, size: 16, color: AppColors.primary),
+                          SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Tap to Autofill Demo: ranger1 / Password@123',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.primary,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
 
                   // Login Button
                   ElevatedButton(

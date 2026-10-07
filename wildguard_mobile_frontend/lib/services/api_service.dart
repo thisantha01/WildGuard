@@ -106,10 +106,16 @@ class ApiService {
   /// Sends a single offline incident to the Spring Boot backend (`/api/incidents/sync`).
   Future<Map<String, dynamic>> syncIncident(IncidentModel incident) async {
     try {
+      if (authToken == null || authToken!.isEmpty) {
+        throw const NetworkSyncException(
+          'Authentication required: Please log in as a Ranger to sync with base station.',
+        );
+      }
+
       final url = Uri.parse('$baseUrl${AppConstants.syncEndpoint}');
       final headers = <String, String>{
         'Content-Type': 'application/json',
-        if (authToken != null) 'Authorization': 'Bearer $authToken',
+        'Authorization': 'Bearer $authToken',
       };
 
       final response = await client
@@ -123,15 +129,23 @@ class ApiService {
       if (response.statusCode == 200 || response.statusCode == 201) {
         return jsonDecode(response.body) as Map<String, dynamic>;
       } else {
+        String serverMsg = '';
+        try {
+          final errData = jsonDecode(response.body) as Map<String, dynamic>;
+          serverMsg = errData['message'] as String? ?? '';
+        } catch (_) {}
+        final msg = serverMsg.isNotEmpty
+            ? serverMsg
+            : 'Server returned error status: ${response.statusCode}';
         throw NetworkSyncException(
-          'Failed to sync incident with server. Status: ${response.statusCode}',
+          'Failed to sync incident: $msg',
           response.body,
         );
       }
     } on NetworkSyncException {
       rethrow;
     } catch (e) {
-      throw NetworkSyncException('Network error during incident synchronization', e.toString());
+      throw NetworkSyncException('Network error during incident synchronization: $e', e.toString());
     }
   }
 
@@ -151,5 +165,31 @@ class ApiService {
       // Return empty string on network failure/offline so caller can use fallback
     }
     return '';
+  }
+
+  /// Fetches logged incident history for the authenticated ranger from GET `/api/incidents/my-history`.
+  Future<List<Map<String, dynamic>>> fetchMyIncidentHistory() async {
+    try {
+      if (authToken == null || authToken!.isEmpty) {
+        return [];
+      }
+      final url = Uri.parse('$baseUrl/api/incidents/my-history');
+      final headers = <String, String>{
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $authToken',
+      };
+
+      final response = await client
+          .get(url, headers: headers)
+          .timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200) {
+        final List<dynamic> list = jsonDecode(response.body) as List<dynamic>;
+        return list.map((item) => item as Map<String, dynamic>).toList();
+      }
+      return [];
+    } catch (e) {
+      return [];
+    }
   }
 }

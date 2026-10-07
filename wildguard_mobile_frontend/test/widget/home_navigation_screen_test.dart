@@ -23,6 +23,8 @@ class MockIncidentRepo implements IncidentRepository {
   Future<void> markIncidentAsSynced(String localId, String serverId, {bool? duplicateFlag}) async {}
   @override
   Future<void> markIncidentAsFailed(String localId) async {}
+  @override
+  Future<List<IncidentModel>> fetchRemoteIncidentHistory() async => [];
 }
 
 class FakeRoleAuthManager extends AuthManager {
@@ -54,7 +56,7 @@ void main() {
   }
 
   group('Role-Based Access Control (RBAC) Navigation Tests', () {
-    testWidgets('Ranger sees ONLY Ranger-specific pages (Log Incident & Sync Manager)', (WidgetTester tester) async {
+    testWidgets('Ranger sees ONLY Ranger-specific pages (Patrol Dashboard, Log Incident & Sync Manager)', (WidgetTester tester) async {
       const rangerUser = UserAuthModel(
         userId: 'u1',
         username: 'ranger_test',
@@ -68,6 +70,7 @@ void main() {
       await tester.pump();
 
       // Should display Ranger tabs
+      expect(find.text(AppStrings.tabPatrolDashboard), findsOneWidget);
       expect(find.text(AppStrings.tabLogIncident), findsOneWidget);
       expect(find.text(AppStrings.tabSyncManager), findsOneWidget);
 

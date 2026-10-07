@@ -14,6 +14,9 @@ enum SyncStatus {
   const SyncStatus(this.code, this.label, this.color);
 
   static SyncStatus fromCode(String code) {
+    if (code.startsWith('SYNCED')) {
+      return SyncStatus.synced;
+    }
     return SyncStatus.values.firstWhere(
       (status) => status.code == code || status.name == code,
       orElse: () => SyncStatus.pending,
