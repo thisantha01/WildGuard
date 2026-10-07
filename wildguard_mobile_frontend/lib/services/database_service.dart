@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 import '../core/constants/app_constants.dart';
@@ -5,9 +8,42 @@ import '../core/errors/app_exception.dart';
 import '../models/incident_model.dart';
 import '../models/sync_status.dart';
 
-/// Database service wrapping local SQLite storage via sqflite.
+/// Database service wrapping local SQLite storage via sqflite,
+/// with persistent browser storage fallback (SharedPreferences) for web demonstrations.
 class DatabaseService {
   Database? _db;
+  static final List<IncidentModel> _webStorage = [];
+  static const String _webStorageKey = 'wildguard_web_incidents';
+  static bool _webStorageLoaded = false;
+
+  static Future<void> _ensureWebStorageLoaded() async {
+    if (!kIsWeb || _webStorageLoaded) return;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString(_webStorageKey);
+      if (raw != null && raw.isNotEmpty) {
+        final List<dynamic> list = jsonDecode(raw) as List<dynamic>;
+        _webStorage.clear();
+        for (final item in list) {
+          _webStorage.add(IncidentModel.fromMap(item as Map<String, dynamic>));
+        }
+      }
+      _webStorageLoaded = true;
+    } catch (e) {
+      debugPrint('⚠️ [LOCAL DB - WEB] Could not load persisted web storage: $e');
+    }
+  }
+
+  static Future<void> _persistWebStorage() async {
+    if (!kIsWeb) return;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final data = jsonEncode(_webStorage.map((i) => i.toMap()).toList());
+      await prefs.setString(_webStorageKey, data);
+    } catch (e) {
+      debugPrint('⚠️ [LOCAL DB - WEB] Could not save persisted web storage: $e');
+    }
+  }
 
   Future<Database> get database async {
     if (_db != null) return _db!;
@@ -16,6 +52,9 @@ class DatabaseService {
   }
 
   Future<Database> _initDatabase() async {
+    if (kIsWeb) {
+      throw UnsupportedError('sqflite is not supported on web.');
+    }
     try {
       final dbPath = await getDatabasesPath();
       final path = join(dbPath, AppConstants.databaseName);
@@ -51,8 +90,41 @@ class DatabaseService {
 
   /// Inserts a new incident into the local database.
   Future<void> insertIncident(IncidentModel incident) async {
+    if (kIsWeb) {
+      await _ensureWebStorageLoaded();
+      final index = _webStorage.indexWhere((i) =>
+          i.localIncidentId == incident.localIncidentId ||
+          (i.serverIncidentId != null &&
+              incident.serverIncidentId != null &&
+              i.serverIncidentId == incident.serverIncidentId));
+      if (index >= 0) {
+        _webStorage[index] = incident;
+      } else {
+        _webStorage.insert(0, incident);
+      }
+      await _persistWebStorage();
+      debugPrint('🗄️ [LOCAL DB - WEB] Saved to persistent local storage. Total records stored: ${_webStorage.length}');
+      return;
+    }
+
     try {
       final db = await database;
+      if (incident.serverIncidentId != null) {
+        final existing = await db.query(
+          AppConstants.tableIncidents,
+          where: 'server_incident_id = ?',
+          whereArgs: [incident.serverIncidentId],
+        );
+        if (existing.isNotEmpty) {
+          await db.update(
+            AppConstants.tableIncidents,
+            incident.toMap(),
+            where: 'server_incident_id = ?',
+            whereArgs: [incident.serverIncidentId],
+          );
+          return;
+        }
+      }
       await db.insert(
         AppConstants.tableIncidents,
         incident.toMap(),
@@ -65,6 +137,11 @@ class DatabaseService {
 
   /// Retrieves all incidents sorted by timestamp descending.
   Future<List<IncidentModel>> getAllIncidents() async {
+    if (kIsWeb) {
+      await _ensureWebStorageLoaded();
+      return List.unmodifiable(_webStorage);
+    }
+
     try {
       final db = await database;
       final results = await db.query(
@@ -77,14 +154,21 @@ class DatabaseService {
     }
   }
 
-  /// Retrieves all pending incidents awaiting synchronization.
+  /// Retrieves all pending and failed incidents awaiting synchronization.
   Future<List<IncidentModel>> getPendingIncidents() async {
+    if (kIsWeb) {
+      await _ensureWebStorageLoaded();
+      return _webStorage
+          .where((i) => i.syncStatus == SyncStatus.pending || i.syncStatus == SyncStatus.failed)
+          .toList();
+    }
+
     try {
       final db = await database;
       final results = await db.query(
         AppConstants.tableIncidents,
-        where: 'sync_status = ?',
-        whereArgs: [SyncStatus.pending.code],
+        where: 'sync_status = ? OR sync_status = ?',
+        whereArgs: [SyncStatus.pending.code, SyncStatus.failed.code],
         orderBy: 'timestamp ASC',
       );
       return results.map((row) => IncidentModel.fromMap(row)).toList();
@@ -101,6 +185,24 @@ class DatabaseService {
     bool? duplicateFlag,
     DateTime? syncedAt,
   }) async {
+    if (kIsWeb) {
+      await _ensureWebStorageLoaded();
+      final index = _webStorage.indexWhere((i) =>
+          i.localIncidentId == localId ||
+          (serverId != null && i.serverIncidentId == serverId));
+      if (index >= 0) {
+        final existing = _webStorage[index];
+        _webStorage[index] = existing.copyWith(
+          syncStatus: status,
+          serverIncidentId: serverId ?? existing.serverIncidentId,
+          duplicateFlag: duplicateFlag ?? existing.duplicateFlag,
+          syncedAt: syncedAt ?? existing.syncedAt,
+        );
+        await _persistWebStorage();
+      }
+      return;
+    }
+
     try {
       final db = await database;
       final updateData = <String, dynamic>{

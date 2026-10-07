@@ -56,4 +56,16 @@ class IncidentRepositoryImpl implements IncidentRepository {
       SyncStatus.failed,
     );
   }
+
+  @override
+  Future<List<IncidentModel>> fetchRemoteIncidentHistory() async {
+    final rawList = await apiService.fetchMyIncidentHistory();
+    final List<IncidentModel> list = [];
+    for (final json in rawList) {
+      final incident = IncidentModel.fromApiJson(json);
+      await databaseService.insertIncident(incident);
+      list.add(incident);
+    }
+    return list;
+  }
 }

@@ -4,11 +4,17 @@ class AppStrings {
 
   // App & Navigation
   static const String appTitle = 'WildGuard Field Ranger';
+  static const String tabPatrolDashboard = 'Patrol Dashboard';
   static const String tabLogIncident = 'Log Incident';
   static const String tabSyncManager = 'Sync Manager';
   static const String tabGeofence = 'Geofence Alerts';
   static const String tabCommunity = 'Community';
   static const String tabAnalytics = 'Analytics';
+
+  // Feature 0: Patrol Dashboard Screen
+  static const String patrolDashboardTitle = 'Patrol Operations Hub';
+  static const String quickLogIncident = '[ 🚨 LOG FIELD INCIDENT ]';
+  static const String quickSyncQueue = '[ 🔄 VIEW SYNC QUEUE ]';
 
   // Feature 1: Log Incident Screen (HCI / UX requirements)
   static const String offlineBannerText = '⚠ OFFLINE MODE: Data will be saved to device.';
@@ -17,6 +23,7 @@ class AppStrings {
   static const String descriptionLabel = 'Field Incident Notes / Description';
   static const String descriptionHint = 'Describe tracks, snare material, carcass condition, etc...';
   static const String gpsLostText = 'GPS Lost';
+  static const String gpsWarningText = 'Warning: Exact GPS location could not be located. Satellite signal obstructed or disabled. Tap [ Drop Pin on Offline Map ] to proceed.';
   static const String dropPinButtonText = '[ Drop Pin on Offline Map ]';
   static const String locationAcquiredText = 'GPS Coordinates Acquired';
   static const String takePhotoButtonText = '[ 📷 Take Photo ]';

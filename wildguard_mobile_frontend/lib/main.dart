@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'core/constants/app_colors.dart';
 import 'core/constants/app_strings.dart';
 import 'repositories/incident_repository_impl.dart';
+import 'screens/home_navigation_screen.dart';
 import 'screens/login_screen.dart';
 import 'services/api_service.dart';
 import 'services/connectivity_service.dart';
@@ -11,7 +12,7 @@ import 'services/location_service.dart';
 import 'viewmodels/auth_manager.dart';
 import 'viewmodels/offline_sync_manager.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   // Clean Architecture Dependency Injection
@@ -25,27 +26,39 @@ void main() {
     apiService: apiService,
   );
 
+  final authManager = AuthManager(apiService: apiService);
+  await authManager.tryRestoreSession();
+
   runApp(
     MultiProvider(
       providers: [
-        ChangeNotifierProvider(
-          create: (_) => AuthManager(apiService: apiService),
+        ChangeNotifierProvider<AuthManager>.value(
+          value: authManager,
         ),
         ChangeNotifierProvider(
           create: (_) => OfflineSyncManager(
             repository: incidentRepository,
             locationService: locationService,
             connectivityService: connectivityService,
-          )..loadIncidents(),
+          )
+            ..loadIncidents(fetchRemote: true)
+            ..startBackgroundSyncWorker(),
         ),
       ],
-      child: const WildGuardApp(),
+      child: WildGuardApp(
+        initialIsLoggedIn: authManager.isAuthenticated && !authManager.isOfflineGuestMode,
+      ),
     ),
   );
 }
 
 class WildGuardApp extends StatelessWidget {
-  const WildGuardApp({super.key});
+  final bool initialIsLoggedIn;
+
+  const WildGuardApp({
+    super.key,
+    this.initialIsLoggedIn = false,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -68,7 +81,7 @@ class WildGuardApp extends StatelessWidget {
           ),
         ),
       ),
-      home: const LoginScreen(),
+      home: initialIsLoggedIn ? const HomeNavigationScreen() : const LoginScreen(),
     );
   }
 }

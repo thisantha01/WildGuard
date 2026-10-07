@@ -12,4 +12,5 @@ abstract class IncidentRepository {
     bool? duplicateFlag,
   });
   Future<void> markIncidentAsFailed(String localId);
+  Future<List<IncidentModel>> fetchRemoteIncidentHistory();
 }

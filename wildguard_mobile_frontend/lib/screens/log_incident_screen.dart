@@ -16,7 +16,12 @@ import 'login_screen.dart';
 
 /// Feature 1: The "Log Incident" Screen (HCI & UX Optimized for Field Rangers).
 class LogIncidentScreen extends StatefulWidget {
-  const LogIncidentScreen({super.key});
+  final VoidCallback? onReturnToDashboard;
+
+  const LogIncidentScreen({
+    super.key,
+    this.onReturnToDashboard,
+  });
 
   @override
   State<LogIncidentScreen> createState() => _LogIncidentScreenState();
@@ -26,6 +31,40 @@ class _LogIncidentScreenState extends State<LogIncidentScreen> {
   final TextEditingController _descriptionController = TextEditingController();
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _autoLocate();
+    });
+  }
+
+  Future<void> _autoLocate() async {
+    final manager = context.read<OfflineSyncManager>();
+    // Asynchronously requests current GPS coordinates and timestamp from device OS
+    final success = await manager.fetchLocation();
+    if (!mounted) return;
+
+    if (!success || manager.isGpsLost) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Row(
+            children: [
+              Icon(Icons.warning_amber_rounded, color: Colors.white),
+              SizedBox(width: 8),
+              Expanded(
+                child: Text(AppStrings.gpsWarningText),
+              ),
+            ],
+          ),
+          backgroundColor: AppColors.pendingAmber,
+          duration: Duration(seconds: 4),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
+
+  @override
   void dispose() {
     _descriptionController.dispose();
     super.dispose();
@@ -33,12 +72,52 @@ class _LogIncidentScreenState extends State<LogIncidentScreen> {
 
   void _onSaveOffline(BuildContext context, OfflineSyncManager manager) async {
     final messenger = ScaffoldMessenger.of(context);
+    final desc = _descriptionController.text.trim();
+
+    if (desc.isEmpty) {
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Row(
+            children: [
+              Icon(Icons.warning_amber_rounded, color: Colors.white),
+              SizedBox(width: 8),
+              Expanded(child: Text('Please enter incident notes / description before saving.')),
+            ],
+          ),
+          backgroundColor: AppColors.pendingAmber,
+          duration: Duration(seconds: 3),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    if (manager.latitude == null || manager.longitude == null) {
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Row(
+            children: [
+              Icon(Icons.location_off, color: Colors.white),
+              SizedBox(width: 8),
+              Expanded(child: Text('GPS coordinates are required. Please acquire GPS or drop a pin.')),
+            ],
+          ),
+          backgroundColor: AppColors.pendingAmber,
+          duration: Duration(seconds: 3),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
     try {
       final success = await manager.saveIncidentOffline(
-        description: _descriptionController.text,
+        description: desc,
       );
 
-      if (success && mounted) {
+      if (!mounted) return;
+
+      if (success) {
         _descriptionController.clear();
         messenger.showSnackBar(
           const SnackBar(
@@ -54,25 +133,181 @@ class _LogIncidentScreenState extends State<LogIncidentScreen> {
             behavior: SnackBarBehavior.floating,
           ),
         );
-      }
-    } catch (_) {
-      if (mounted && manager.errorMessage != null) {
+        _showSaveSuccessModal(context, manager.lastSavedIncident);
+      } else {
         messenger.showSnackBar(
           SnackBar(
             content: Row(
               children: [
                 const Icon(Icons.error_outline, color: Colors.white),
                 const SizedBox(width: 8),
-                Expanded(child: Text(manager.errorMessage!)),
+                Expanded(child: Text(manager.errorMessage ?? 'Failed to save offline incident.')),
               ],
             ),
             backgroundColor: AppColors.failedRed,
-            duration: const Duration(seconds: 3),
+            duration: const Duration(seconds: 4),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        messenger.showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.error_outline, color: Colors.white),
+                const SizedBox(width: 8),
+                Expanded(child: Text(manager.errorMessage ?? e.toString())),
+              ],
+            ),
+            backgroundColor: AppColors.failedRed,
+            duration: const Duration(seconds: 4),
             behavior: SnackBarBehavior.floating,
           ),
         );
       }
     }
+  }
+
+  /// Prominent Visual Success Modal ("Incident Saved to Device - Pending Sync")
+  /// Unblocks the Ranger's workflow and returns them to the active patrol dashboard.
+  void _showSaveSuccessModal(BuildContext context, dynamic incident) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogCtx) => AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        titlePadding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+        contentPadding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
+        title: Column(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.syncedGreen.withOpacity(0.12),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.check_circle_rounded,
+                color: AppColors.syncedGreen,
+                size: 46,
+              ),
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              'Incident Saved to Device',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: AppColors.textPrimary,
+              ),
+            ),
+            const SizedBox(height: 4),
+            const Text(
+              'Pending sync with base station',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 13,
+                color: AppColors.textSecondary,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (incident != null) ...[
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade50,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: AppColors.cardBorder),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Flexible(
+                          child: Text(
+                            incident.type.displayName,
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          incident.severity.displayName,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 12,
+                            color: AppColors.pendingAmber,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      incident.description,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
+                    ),
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        const Icon(Icons.location_on, size: 13, color: AppColors.primary),
+                        const SizedBox(width: 4),
+                        Text(
+                          '${incident.latitude.toStringAsFixed(4)}, ${incident.longitude.toStringAsFixed(4)}',
+                          style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 20),
+            ],
+
+            ElevatedButton(
+              key: const Key('return_to_dashboard_button'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(AppConstants.borderRadius),
+                ),
+                elevation: 2,
+              ),
+              onPressed: () {
+                Navigator.of(dialogCtx).pop();
+                widget.onReturnToDashboard?.call();
+              },
+              child: const Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.dashboard_rounded, size: 18),
+                  SizedBox(width: 8),
+                  Text(
+                    'Return to Patrol Dashboard',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   void _showRangerProfileDialog(BuildContext context) {
@@ -130,6 +365,14 @@ class _LogIncidentScreenState extends State<LogIncidentScreen> {
   @override
   Widget build(BuildContext context) {
     final manager = context.watch<OfflineSyncManager>();
+    final authManager = context.watch<AuthManager>();
+
+    // Red offline alert banner appears ONLY if the device cannot sync with the database:
+    // • Device is offline (no network)
+    // • Or Ranger is working in offline guest mode / unauthenticated
+    final canSyncWithDatabase = manager.isOnline &&
+        authManager.isAuthenticated &&
+        !authManager.isOfflineGuestMode;
 
     return Scaffold(
       appBar: AppBar(
@@ -148,8 +391,9 @@ class _LogIncidentScreenState extends State<LogIncidentScreen> {
       ),
       body: Column(
         children: [
-          // Top HCI Alert Banner: High-urgency full-width RED banner
-          const OfflineBannerWidget(),
+          // Top HCI Alert Banner: High-urgency full-width RED banner shown ONLY when unable to sync
+          if (!canSyncWithDatabase)
+            const OfflineBannerWidget(),
 
           // Form Body
           Expanded(
@@ -230,16 +474,38 @@ class _LogIncidentScreenState extends State<LogIncidentScreen> {
                     latitude: manager.latitude,
                     longitude: manager.longitude,
                     isGpsLost: manager.isGpsLost,
-                    onFetchGps: () => manager.fetchLocation(),
+                    isLocating: manager.isLocating,
+                    onFetchGps: () async {
+                      final success = await manager.fetchLocation();
+                      if (!success && mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Row(
+                              children: [
+                                Icon(Icons.warning_amber_rounded, color: Colors.white),
+                                SizedBox(width: 8),
+                                Expanded(child: Text(AppStrings.gpsWarningText)),
+                              ],
+                            ),
+                            backgroundColor: AppColors.pendingAmber,
+                            duration: Duration(seconds: 4),
+                            behavior: SnackBarBehavior.floating,
+                          ),
+                        );
+                      }
+                    },
                     onDropPin: () => manager.dropPinOnOfflineMap(),
+                    onLocationChanged: (lat, lon) => manager.setCoordinates(lat, lon),
                   ),
                   const SizedBox(height: 12),
 
                   // Photo Section (Fitts's Law large touch targets + Preview Box)
                   PhotoPickerWidget(
                     photoPath: manager.photoPath,
+                    photoBase64: manager.photoBase64,
                     onTakePhoto: () => manager.pickPhoto(ImageSource.camera),
                     onSelectGallery: () => manager.pickPhoto(ImageSource.gallery),
+                    onClearPhoto: () => manager.clearPhoto(),
                   ),
                   const SizedBox(height: 20),
 

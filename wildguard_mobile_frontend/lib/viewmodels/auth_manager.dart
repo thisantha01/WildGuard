@@ -1,4 +1,6 @@
+import 'dart:convert';
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../core/errors/app_exception.dart';
 import '../models/user_auth_model.dart';
 import '../services/api_service.dart';
@@ -6,6 +8,7 @@ import '../services/api_service.dart';
 /// ViewModel managing Ranger authentication state, JWT tokens, and user profile.
 class AuthManager extends ChangeNotifier {
   final ApiService apiService;
+  static const String _sessionKey = 'wildguard_auth_user_session';
 
   UserAuthModel? _currentUser;
   bool _isLoading = false;
@@ -20,6 +23,44 @@ class AuthManager extends ChangeNotifier {
   bool get isAuthenticated => _currentUser != null || _isOfflineGuestMode;
   String? get token => _currentUser?.token;
   String? get errorMessage => _errorMessage;
+
+  Future<bool> tryRestoreSession() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString(_sessionKey);
+      if (raw != null && raw.isNotEmpty) {
+        final Map<String, dynamic> data = jsonDecode(raw) as Map<String, dynamic>;
+        _currentUser = UserAuthModel.fromJson(data);
+        if (_currentUser?.token != null && _currentUser!.token.isNotEmpty) {
+          apiService.setAuthToken(_currentUser!.token);
+        }
+        _isOfflineGuestMode = false;
+        notifyListeners();
+        return true;
+      }
+    } catch (e) {
+      debugPrint('⚠️ [AUTH] Failed to restore session from prefs: $e');
+    }
+    return false;
+  }
+
+  Future<void> _persistSession(UserAuthModel user) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_sessionKey, jsonEncode(user.toJson()));
+    } catch (e) {
+      debugPrint('⚠️ [AUTH] Failed to save session to prefs: $e');
+    }
+  }
+
+  Future<void> _clearPersistedSession() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_sessionKey);
+    } catch (e) {
+      debugPrint('⚠️ [AUTH] Failed to remove session from prefs: $e');
+    }
+  }
 
   String get rangerDisplayName {
     if (_currentUser != null) {
@@ -50,6 +91,7 @@ class AuthManager extends ChangeNotifier {
       _currentUser = UserAuthModel.fromJson(response);
       _isOfflineGuestMode = false;
       _isLoading = false;
+      await _persistSession(_currentUser!);
       notifyListeners();
       return true;
     } on NetworkSyncException catch (e) {
@@ -98,6 +140,7 @@ class AuthManager extends ChangeNotifier {
       _currentUser = UserAuthModel.fromJson(response);
       _isOfflineGuestMode = false;
       _isLoading = false;
+      await _persistSession(_currentUser!);
       notifyListeners();
       return true;
     } on NetworkSyncException catch (e) {
@@ -118,6 +161,7 @@ class AuthManager extends ChangeNotifier {
     _isOfflineGuestMode = true;
     _currentUser = null;
     _errorMessage = null;
+    _clearPersistedSession();
     notifyListeners();
   }
 
@@ -127,6 +171,7 @@ class AuthManager extends ChangeNotifier {
     _isOfflineGuestMode = false;
     apiService.setAuthToken(null);
     _errorMessage = null;
+    _clearPersistedSession();
     notifyListeners();
   }
 

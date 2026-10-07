@@ -67,6 +67,9 @@ class FakeIncidentRepository implements IncidentRepository {
       storage[index] = storage[index].copyWith(syncStatus: SyncStatus.failed);
     }
   }
+
+  @override
+  Future<List<IncidentModel>> fetchRemoteIncidentHistory() async => [];
 }
 
 class FakeLocationService extends LocationService {
@@ -246,6 +249,52 @@ void main() {
       manager.clearMessages();
       expect(manager.errorMessage, isNull);
       expect(manager.successMessage, isNull);
+    });
+
+    test('runBackgroundSyncCycle when online silently uploads pending payload and updates status to SYNCED', () async {
+      connectivityService.mockIsOnline = true;
+      manager.setCoordinates(6.37, 81.40);
+      await manager.saveIncidentOffline(description: 'Trap spotted in forest');
+
+      expect(manager.pendingCount, 1);
+      expect(manager.incidents.first.syncStatus, SyncStatus.pending);
+
+      final syncedCount = await manager.runBackgroundSyncCycle();
+
+      expect(syncedCount, 1);
+      expect(manager.pendingCount, 0);
+      expect(manager.incidents.first.syncStatus, SyncStatus.synced);
+      expect(manager.incidents.first.serverIncidentId, startsWith('srv-'));
+    });
+
+    test('runBackgroundSyncCycle when offline sleeps and leaves records as PENDING', () async {
+      connectivityService.mockIsOnline = false;
+      manager.setCoordinates(6.37, 81.40);
+      await manager.saveIncidentOffline(description: 'Tracks in mud');
+
+      expect(manager.pendingCount, 1);
+
+      final syncedCount = await manager.runBackgroundSyncCycle();
+
+      expect(syncedCount, 0);
+      expect(manager.pendingCount, 1);
+      expect(manager.incidents.first.syncStatus, SyncStatus.pending);
+    });
+
+    test('retrySingleIncident should mark FAILED incident as SYNCED when successful', () async {
+      manager.setCoordinates(6.37, 81.40);
+      await manager.saveIncidentOffline(description: 'Poacher hideout spotted');
+      final incident = manager.incidents.first;
+      await repository.markIncidentAsFailed(incident.localIncidentId);
+      await manager.loadIncidents();
+      expect(manager.incidents.first.syncStatus, SyncStatus.failed);
+
+      connectivityService.mockIsOnline = true;
+      final ok = await manager.retrySingleIncident(manager.incidents.first);
+
+      expect(ok, isTrue);
+      expect(manager.incidents.first.syncStatus, SyncStatus.synced);
+      expect(manager.errorMessage, isNull);
     });
   });
 }
