@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import '../core/constants/app_colors.dart';
 import '../core/constants/app_strings.dart';
 import '../viewmodels/auth_manager.dart';
@@ -10,7 +11,7 @@ import 'placeholders/community_alerts_placeholder_screen.dart';
 import 'placeholders/community_placeholder_screen.dart';
 import 'placeholders/geofence_placeholder_screen.dart';
 import 'sync_manager_screen.dart';
-import 'log_incident_screen.dart';
+import 'community_workspaces.dart';
 
 /// Navigation destination model bound to specific roles.
 class _RoleNavDestination {
@@ -81,7 +82,7 @@ class _HomeNavigationScreenState extends State<HomeNavigationScreen> {
           activeIcon: Icons.report_problem_rounded,
         ),
         _RoleNavDestination(
-          screen: CommunityAlertsPlaceholderScreen(),
+          screen: LiaisonAlertsManagementScreen(),
           label: 'Villager Alerts',
           icon: Icons.campaign_outlined,
           activeIcon: Icons.campaign_rounded,

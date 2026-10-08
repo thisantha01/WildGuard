@@ -26,4 +26,5 @@ public class AuthResponse {
     private Role role;
     private String badgeNumber;
     private String assignedPark;
+    private String phoneNumber;
 }
