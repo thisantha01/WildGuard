@@ -111,6 +111,9 @@ public class AuthServiceImpl implements AuthService {
             case ROLE_LIAISON:
                 prefix = "WG-LIA-";
                 break;
+            case ROLE_VILLAGER:
+                prefix = "WG-VIL-";
+                break;
             case ROLE_RANGER:
             default:
                 prefix = "WG-RNG-";

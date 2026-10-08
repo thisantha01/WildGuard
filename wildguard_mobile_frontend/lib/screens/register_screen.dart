@@ -5,7 +5,7 @@ import '../core/constants/app_constants.dart';
 import '../viewmodels/auth_manager.dart';
 import 'home_navigation_screen.dart';
 
-/// Screen allowing new Rangers to register with the Spring Boot backend.
+/// Screen allowing community members and staff to register with WildGuard.
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
 
@@ -47,6 +47,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }
 
   Future<void> _loadDynamicBadgeNumber(String role) async {
+    if (role == 'VILLAGER') {
+      setState(() { _isLoadingBadge = false; _badgeNumberController.clear(); });
+      return;
+    }
     setState(() => _isLoadingBadge = true);
     try {
       final authManager = context.read<AuthManager>();
@@ -69,6 +73,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
         return 'WG-MGR-001';
       case 'LIAISON':
         return 'WG-LIA-001';
+      case 'VILLAGER':
+        return '';
       case 'RANGER':
       default:
         return 'WG-RNG-001';
@@ -97,7 +103,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       email: _emailController.text,
       password: _passwordController.text,
       fullName: _fullNameController.text,
-      badgeNumber: _badgeNumberController.text,
+      badgeNumber: _selectedRole == 'VILLAGER' ? null : _badgeNumberController.text,
       assignedPark: _selectedPark,
       role: _selectedRole,
     );
@@ -140,8 +146,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     // Header text
-                    const Text(
-                      'Join WildGuard Conservation Team',
+                    Text(
+                      _selectedRole == 'VILLAGER' ? 'Join Your WildGuard Community' : 'Join WildGuard Conservation Team',
                       style: TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.bold,
@@ -279,6 +285,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         DropdownMenuItem(value: 'RANGER', child: Text('RANGER (Field Operations)')),
                         DropdownMenuItem(value: 'MANAGER', child: Text('MANAGER (Park Administration)')),
                         DropdownMenuItem(value: 'LIAISON', child: Text('LIAISON (Community Relations)')),
+                        DropdownMenuItem(value: 'VILLAGER', child: Text('VILLAGER (Community Member)')),
                       ],
                       onChanged: (val) {
                         if (val != null) {
@@ -315,7 +322,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     ),
                     const SizedBox(height: 12),
 
-                    // System-Assigned Badge ID (Non-editable / Read-Only)
+                    // Staff badge numbers are not used for community accounts.
+                    if (_selectedRole != 'VILLAGER') ...[
                     TextFormField(
                       key: const Key('reg_badge_field'),
                       controller: _badgeNumberController,
@@ -350,6 +358,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         fillColor: const Color(0xFFF1F5F2),
                       ),
                     ),
+                    ],
                     const SizedBox(height: 24),
 
                     // Submit Registration Button

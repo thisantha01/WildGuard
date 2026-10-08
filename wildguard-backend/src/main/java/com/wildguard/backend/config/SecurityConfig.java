@@ -42,7 +42,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers("/api/rangers/**").hasRole("RANGER")
-                        .requestMatchers("/api/incidents/**").hasRole("RANGER")
+                        .requestMatchers("/api/incidents/**").hasAnyRole("RANGER", "VILLAGER")
                         .anyRequest().authenticated()
                 );
 

@@ -9,7 +9,8 @@ import com.fasterxml.jackson.annotation.JsonValue;
 public enum Role {
     ROLE_RANGER,
     ROLE_MANAGER,
-    ROLE_LIAISON;
+    ROLE_LIAISON,
+    ROLE_VILLAGER;
 
     /**
      * Parses string role (e.g. "RANGER", "ROLE_RANGER") to Role enum safely.

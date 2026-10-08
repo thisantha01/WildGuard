@@ -17,10 +17,12 @@ import 'login_screen.dart';
 /// Feature 1: The "Log Incident" Screen (HCI & UX Optimized for Field Rangers).
 class LogIncidentScreen extends StatefulWidget {
   final VoidCallback? onReturnToDashboard;
+  final bool villagerMode;
 
   const LogIncidentScreen({
     super.key,
     this.onReturnToDashboard,
+    this.villagerMode = false,
   });
 
   @override
@@ -197,8 +199,8 @@ class _LogIncidentScreenState extends State<LogIncidentScreen> {
               ),
             ),
             const SizedBox(height: 12),
-            const Text(
-              'Incident Saved to Device',
+            Text(
+              widget.villagerMode ? 'Incident Report Saved' : 'Incident Saved to Device',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 18,
@@ -207,8 +209,8 @@ class _LogIncidentScreenState extends State<LogIncidentScreen> {
               ),
             ),
             const SizedBox(height: 4),
-            const Text(
-              'Pending sync with base station',
+             Text(
+              widget.villagerMode ? 'Your report is queued for the response team' : 'Pending sync with base station',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 13,
@@ -376,7 +378,7 @@ class _LogIncidentScreenState extends State<LogIncidentScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Log Field Incident'),
+          title: Text(widget.villagerMode ? 'Report an Incident' : 'Log Field Incident'),
         backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
         elevation: 0,
@@ -522,8 +524,8 @@ class _LogIncidentScreenState extends State<LogIncidentScreen> {
                         borderRadius: BorderRadius.circular(AppConstants.borderRadius),
                       ),
                     ),
-                    child: const Text(
-                      AppStrings.saveOfflineButtonText,
+                    child: Text(
+                      widget.villagerMode ? 'SUBMIT INCIDENT REPORT' : AppStrings.saveOfflineButtonText,
                       style: TextStyle(
                         fontSize: 16.0,
                         fontWeight: FontWeight.bold,
