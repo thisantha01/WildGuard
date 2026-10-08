@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import '../core/constants/app_colors.dart';
 import '../core/constants/app_constants.dart';
 import '../viewmodels/auth_manager.dart';
@@ -19,6 +20,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _fullNameController = TextEditingController();
+  final _phoneController = TextEditingController();
   late final TextEditingController _badgeNumberController;
 
   String _selectedPark = 'Yala National Park';
@@ -48,7 +50,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   Future<void> _loadDynamicBadgeNumber(String role) async {
     if (role == 'VILLAGER') {
-      setState(() { _isLoadingBadge = false; _badgeNumberController.clear(); });
+      setState(() {
+        _isLoadingBadge = false;
+        _badgeNumberController.clear();
+      });
       return;
     }
     setState(() => _isLoadingBadge = true);
@@ -87,6 +92,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     _emailController.dispose();
     _passwordController.dispose();
     _fullNameController.dispose();
+    _phoneController.dispose();
     _badgeNumberController.dispose();
     super.dispose();
   }
@@ -103,15 +109,20 @@ class _RegisterScreenState extends State<RegisterScreen> {
       email: _emailController.text,
       password: _passwordController.text,
       fullName: _fullNameController.text,
-      badgeNumber: _selectedRole == 'VILLAGER' ? null : _badgeNumberController.text,
+      badgeNumber: _selectedRole == 'VILLAGER'
+          ? null
+          : _badgeNumberController.text,
       assignedPark: _selectedPark,
       role: _selectedRole,
+      phoneNumber: _phoneController.text,
     );
 
     if (success && mounted) {
       messenger.showSnackBar(
         SnackBar(
-          content: Text('Account created! Welcome, ${authManager.rangerDisplayName}'),
+          content: Text(
+            'Account created! Welcome, ${authManager.rangerDisplayName}',
+          ),
           backgroundColor: AppColors.greenSyncSuccess,
           duration: const Duration(seconds: 2),
         ),
@@ -137,7 +148,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
+            padding: const EdgeInsets.symmetric(
+              horizontal: 24.0,
+              vertical: 16.0,
+            ),
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 480),
               child: Form(
@@ -147,7 +161,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   children: [
                     // Header text
                     Text(
-                      _selectedRole == 'VILLAGER' ? 'Join Your WildGuard Community' : 'Join WildGuard Conservation Team',
+                      _selectedRole == 'VILLAGER'
+                          ? 'Join Your WildGuard Community'
+                          : 'Join WildGuard Conservation Team',
                       style: TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.bold,
@@ -167,18 +183,31 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         margin: const EdgeInsets.only(bottom: 16),
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          color: AppColors.redOfflineAlert.withValues(alpha: 0.1),
+                          color: AppColors.redOfflineAlert.withValues(
+                            alpha: 0.1,
+                          ),
                           borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: AppColors.redOfflineAlert.withValues(alpha: 0.4)),
+                          border: Border.all(
+                            color: AppColors.redOfflineAlert.withValues(
+                              alpha: 0.4,
+                            ),
+                          ),
                         ),
                         child: Row(
                           children: [
-                            const Icon(Icons.error_outline, color: AppColors.redOfflineAlert, size: 20),
+                            const Icon(
+                              Icons.error_outline,
+                              color: AppColors.redOfflineAlert,
+                              size: 20,
+                            ),
                             const SizedBox(width: 8),
                             Expanded(
                               child: Text(
                                 authManager.errorMessage!,
-                                style: const TextStyle(color: AppColors.redOfflineAlert, fontSize: 13),
+                                style: const TextStyle(
+                                  color: AppColors.redOfflineAlert,
+                                  fontSize: 13,
+                                ),
                               ),
                             ),
                           ],
@@ -193,14 +222,37 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         labelText: 'Full Name *',
                         prefixIcon: const Icon(Icons.badge_outlined),
                         border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(AppConstants.borderRadius),
+                          borderRadius: BorderRadius.circular(
+                            AppConstants.borderRadius,
+                          ),
                         ),
                         filled: true,
                         fillColor: Colors.white,
                       ),
-                      validator: (val) => val == null || val.trim().isEmpty ? 'Full name is required' : null,
+                      validator: (val) => val == null || val.trim().isEmpty
+                          ? 'Full name is required'
+                          : null,
                     ),
                     const SizedBox(height: 12),
+
+                    if (_selectedRole == 'VILLAGER') ...[
+                      TextFormField(
+                        controller: _phoneController,
+                        keyboardType: TextInputType.phone,
+                        decoration: InputDecoration(
+                          labelText: 'Phone number (for response updates)',
+                          prefixIcon: const Icon(Icons.phone_outlined),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(
+                              AppConstants.borderRadius,
+                            ),
+                          ),
+                          filled: true,
+                          fillColor: Colors.white,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                    ],
 
                     // Username
                     TextFormField(
@@ -210,14 +262,20 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         labelText: 'Username *',
                         prefixIcon: const Icon(Icons.person_outline),
                         border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(AppConstants.borderRadius),
+                          borderRadius: BorderRadius.circular(
+                            AppConstants.borderRadius,
+                          ),
                         ),
                         filled: true,
                         fillColor: Colors.white,
                       ),
                       validator: (val) {
-                        if (val == null || val.trim().isEmpty) return 'Username is required';
-                        if (val.trim().length < 3) return 'At least 3 characters';
+                        if (val == null || val.trim().isEmpty) {
+                          return 'Username is required';
+                        }
+                        if (val.trim().length < 3) {
+                          return 'At least 3 characters';
+                        }
                         return null;
                       },
                     ),
@@ -232,14 +290,20 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         labelText: 'Email Address *',
                         prefixIcon: const Icon(Icons.email_outlined),
                         border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(AppConstants.borderRadius),
+                          borderRadius: BorderRadius.circular(
+                            AppConstants.borderRadius,
+                          ),
                         ),
                         filled: true,
                         fillColor: Colors.white,
                       ),
                       validator: (val) {
-                        if (val == null || val.trim().isEmpty) return 'Email is required';
-                        if (!val.contains('@') || !val.contains('.')) return 'Valid email required';
+                        if (val == null || val.trim().isEmpty) {
+                          return 'Email is required';
+                        }
+                        if (!val.contains('@') || !val.contains('.')) {
+                          return 'Valid email required';
+                        }
                         return null;
                       },
                     ),
@@ -254,13 +318,17 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         labelText: 'Password *',
                         prefixIcon: const Icon(Icons.lock_outline),
                         border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(AppConstants.borderRadius),
+                          borderRadius: BorderRadius.circular(
+                            AppConstants.borderRadius,
+                          ),
                         ),
                         filled: true,
                         fillColor: Colors.white,
                       ),
                       validator: (val) {
-                        if (val == null || val.isEmpty) return 'Password is required';
+                        if (val == null || val.isEmpty) {
+                          return 'Password is required';
+                        }
                         if (val.length < 6) return 'At least 6 characters';
                         return null;
                       },
@@ -276,22 +344,37 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         labelText: 'Role *',
                         prefixIcon: const Icon(Icons.security_outlined),
                         border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(AppConstants.borderRadius),
+                          borderRadius: BorderRadius.circular(
+                            AppConstants.borderRadius,
+                          ),
                         ),
                         filled: true,
                         fillColor: Colors.white,
                       ),
                       items: const [
-                        DropdownMenuItem(value: 'RANGER', child: Text('RANGER (Field Operations)')),
-                        DropdownMenuItem(value: 'MANAGER', child: Text('MANAGER (Park Administration)')),
-                        DropdownMenuItem(value: 'LIAISON', child: Text('LIAISON (Community Relations)')),
-                        DropdownMenuItem(value: 'VILLAGER', child: Text('VILLAGER (Community Member)')),
+                        DropdownMenuItem(
+                          value: 'RANGER',
+                          child: Text('RANGER (Field Operations)'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'MANAGER',
+                          child: Text('MANAGER (Park Administration)'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'LIAISON',
+                          child: Text('LIAISON (Community Relations)'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'VILLAGER',
+                          child: Text('VILLAGER (Community Member)'),
+                        ),
                       ],
                       onChanged: (val) {
                         if (val != null) {
                           setState(() {
                             _selectedRole = val;
-                            _badgeNumberController.text = _getAssignedBadgeForRole(val);
+                            _badgeNumberController.text =
+                                _getAssignedBadgeForRole(val);
                           });
                           _loadDynamicBadgeNumber(val);
                         }
@@ -308,7 +391,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         labelText: 'Assigned National Park / Sanctuary',
                         prefixIcon: const Icon(Icons.park_outlined),
                         border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(AppConstants.borderRadius),
+                          borderRadius: BorderRadius.circular(
+                            AppConstants.borderRadius,
+                          ),
                         ),
                         filled: true,
                         fillColor: Colors.white,
@@ -324,40 +409,51 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
                     // Staff badge numbers are not used for community accounts.
                     if (_selectedRole != 'VILLAGER') ...[
-                    TextFormField(
-                      key: const Key('reg_badge_field'),
-                      controller: _badgeNumberController,
-                      readOnly: true,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.primaryDark,
-                        letterSpacing: 1.1,
-                      ),
-                      decoration: InputDecoration(
-                        labelText: 'Staff Badge ID (System-Assigned)',
-                        helperText: 'Auto-assigned by WildGuard based on selected role',
-                        helperStyle: const TextStyle(color: Colors.black54, fontSize: 12),
-                        prefixIcon: const Icon(Icons.assignment_ind_outlined),
-                        suffixIcon: _isLoadingBadge
-                            ? const Padding(
-                                padding: EdgeInsets.all(12.0),
-                                child: SizedBox(
-                                  width: 16,
-                                  height: 16,
-                                  child: CircularProgressIndicator(strokeWidth: 2),
-                                ),
-                              )
-                            : const Tooltip(
-                                message: 'System-assigned badge number. Cannot be manually edited.',
-                                child: Icon(Icons.lock_outline, color: Colors.grey, size: 20),
-                              ),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(AppConstants.borderRadius),
+                      TextFormField(
+                        key: const Key('reg_badge_field'),
+                        controller: _badgeNumberController,
+                        readOnly: true,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.primaryDark,
+                          letterSpacing: 1.1,
                         ),
-                        filled: true,
-                        fillColor: const Color(0xFFF1F5F2),
+                        decoration: InputDecoration(
+                          labelText: 'Staff Badge ID (System-Assigned)',
+                          helperText: 'Auto-assigned by WildGuard based on selected role',
+                          helperStyle: const TextStyle(
+                            color: Colors.black54,
+                            fontSize: 12,
+                          ),
+                          prefixIcon: const Icon(Icons.assignment_ind_outlined),
+                          suffixIcon: _isLoadingBadge
+                              ? const Padding(
+                                  padding: EdgeInsets.all(12.0),
+                                  child: SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  ),
+                                )
+                              : const Tooltip(
+                                  message: 'System-assigned badge number. Cannot be manually edited.',
+                                  child: Icon(
+                                    Icons.lock_outline,
+                                    color: Colors.grey,
+                                    size: 20,
+                                  ),
+                                ),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(
+                              AppConstants.borderRadius,
+                            ),
+                          ),
+                          filled: true,
+                          fillColor: const Color(0xFFF1F5F2),
+                        ),
                       ),
-                    ),
                     ],
                     const SizedBox(height: 24),
 
@@ -370,7 +466,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         foregroundColor: Colors.white,
                         minimumSize: const Size.fromHeight(50),
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(AppConstants.borderRadius),
+                          borderRadius: BorderRadius.circular(
+                            AppConstants.borderRadius,
+                          ),
                         ),
                         elevation: 2,
                       ),
@@ -378,7 +476,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           ? const SizedBox(
                               height: 20,
                               width: 20,
-                              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
                             )
                           : const Row(
                               mainAxisAlignment: MainAxisAlignment.center,
@@ -387,7 +488,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                 SizedBox(width: 8),
                                 Text(
                                   'REGISTER',
-                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 15,
+                                  ),
                                 ),
                               ],
                             ),
@@ -399,7 +503,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       onPressed: () => Navigator.of(context).pop(),
                       child: const Text(
                         'Already have an account? Back to Login',
-                        style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.w600),
+                        style: TextStyle(
+                          color: AppColors.primary,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ),
                   ],
