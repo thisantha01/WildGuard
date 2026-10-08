@@ -1,11 +1,10 @@
 package com.wildguard.backend.modules.teammates.uc03_community;
 
-import java.util.List;
-import java.util.Map;
-
+/**
+ * Team Boundary - Stub for UC03: Process Community Conflict Reports.
+ * Assigned to Member 3.
+ * DO NOT IMPLEMENT - Reserved for Team Member 3.
+ */
 public interface CommunityReportService {
-    List<Map<String, Object>> reports(String username, boolean liaison);
-    List<Map<String, Object>> alerts();
-    Map<String, Object> saveReport(Map<String, Object> payload, String username);
-    Map<String, Object> saveAlert(Map<String, Object> payload);
+    // Interface stub for Team Member 3
 }

@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-
 import 'core/constants/app_colors.dart';
 import 'core/constants/app_strings.dart';
 import 'repositories/incident_repository_impl.dart';
-import 'repositories/community_conflict_repository.dart';
 import 'screens/home_navigation_screen.dart';
 import 'screens/login_screen.dart';
 import 'services/api_service.dart';
@@ -12,7 +10,6 @@ import 'services/connectivity_service.dart';
 import 'services/database_service.dart';
 import 'services/location_service.dart';
 import 'viewmodels/auth_manager.dart';
-import 'viewmodels/community_conflict_manager.dart';
 import 'viewmodels/offline_sync_manager.dart';
 
 void main() async {
@@ -35,26 +32,21 @@ void main() async {
   runApp(
     MultiProvider(
       providers: [
-        ChangeNotifierProvider<AuthManager>.value(value: authManager),
-        ChangeNotifierProvider(
-          create: (_) => CommunityConflictManager(
-            repository: LocalFirstCommunityConflictRepository(apiService),
-          )..refresh(),
+        ChangeNotifierProvider<AuthManager>.value(
+          value: authManager,
         ),
         ChangeNotifierProvider(
-          create: (_) =>
-              OfflineSyncManager(
-                  repository: incidentRepository,
-                  locationService: locationService,
-                  connectivityService: connectivityService,
-                )
-                ..loadIncidents(fetchRemote: true)
-                ..startBackgroundSyncWorker(),
+          create: (_) => OfflineSyncManager(
+            repository: incidentRepository,
+            locationService: locationService,
+            connectivityService: connectivityService,
+          )
+            ..loadIncidents(fetchRemote: true)
+            ..startBackgroundSyncWorker(),
         ),
       ],
       child: WildGuardApp(
-        initialIsLoggedIn:
-            authManager.isAuthenticated && !authManager.isOfflineGuestMode,
+        initialIsLoggedIn: authManager.isAuthenticated && !authManager.isOfflineGuestMode,
       ),
     ),
   );
@@ -63,7 +55,10 @@ void main() async {
 class WildGuardApp extends StatelessWidget {
   final bool initialIsLoggedIn;
 
-  const WildGuardApp({super.key, this.initialIsLoggedIn = false});
+  const WildGuardApp({
+    super.key,
+    this.initialIsLoggedIn = false,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -86,9 +81,7 @@ class WildGuardApp extends StatelessWidget {
           ),
         ),
       ),
-      home: initialIsLoggedIn
-          ? const HomeNavigationScreen()
-          : const LoginScreen(),
+      home: initialIsLoggedIn ? const HomeNavigationScreen() : const LoginScreen(),
     );
   }
 }

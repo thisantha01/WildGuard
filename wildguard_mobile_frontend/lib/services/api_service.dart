@@ -1,7 +1,5 @@
 import 'dart:convert';
-
 import 'package:http/http.dart' as http;
-
 import '../core/constants/app_constants.dart';
 import '../core/errors/app_exception.dart';
 import '../models/incident_model.dart';
@@ -12,20 +10,17 @@ class ApiService {
   final String baseUrl;
   String? authToken;
 
-  ApiService({http.Client? client, String? baseUrl, this.authToken})
-    : client = client ?? http.Client(),
-      baseUrl = baseUrl ?? AppConstants.defaultApiBaseUrl;
+  ApiService({
+    http.Client? client,
+    String? baseUrl,
+    this.authToken,
+  })  : client = client ?? http.Client(),
+        baseUrl = baseUrl ?? AppConstants.defaultApiBaseUrl;
 
   /// Sets active Ranger JWT authentication token.
   void setAuthToken(String? token) {
     authToken = token;
   }
-
-  Map<String, String> get authHeaders => {
-    'Content-Type': 'application/json',
-    if (authToken != null && authToken!.isNotEmpty)
-      'Authorization': 'Bearer $authToken',
-  };
 
   /// Authenticates a Ranger against POST /api/auth/login
   Future<Map<String, dynamic>> login(String username, String password) async {
@@ -69,7 +64,6 @@ class ApiService {
     required String fullName,
     String? badgeNumber,
     String? assignedPark,
-    String? phoneNumber,
     String role = 'RANGER',
   }) async {
     try {
@@ -85,7 +79,6 @@ class ApiService {
               'fullName': fullName.trim(),
               'badgeNumber': badgeNumber?.trim(),
               'assignedPark': assignedPark?.trim(),
-              'phoneNumber': phoneNumber?.trim(),
               'role': role,
             }),
           )
@@ -106,10 +99,7 @@ class ApiService {
     } on NetworkSyncException {
       rethrow;
     } catch (e) {
-      throw NetworkSyncException(
-        'Network error during registration',
-        e.toString(),
-      );
+      throw NetworkSyncException('Network error during registration', e.toString());
     }
   }
 
@@ -155,10 +145,7 @@ class ApiService {
     } on NetworkSyncException {
       rethrow;
     } catch (e) {
-      throw NetworkSyncException(
-        'Network error during incident synchronization: $e',
-        e.toString(),
-      );
+      throw NetworkSyncException('Network error during incident synchronization: $e', e.toString());
     }
   }
 
