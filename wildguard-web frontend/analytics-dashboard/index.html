@@ -1,0 +1,2817 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <title>WildGuard · Conservation Analytics</title>
+
+    <!-- Leaflet CSS -->
+    <link
+        rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"
+    >
+
+    <style>
+        /* =========================================================
+           ROOT VARIABLES
+        ========================================================= */
+        :root {
+            --bg: #0d1512;
+            --panel: #14201b;
+            --panel2: #1a2a23;
+            --line: #243830;
+            --text: #e8f1ec;
+            --muted: #8fa89c;
+            --green: #3ddc84;
+            --lime: #b6e35a;
+            --amber: #f5b942;
+            --orange: #ff8a4c;
+            --red: #ff5c5c;
+            --blue: #5cc8ff;
+        }
+
+        /* =========================================================
+           GLOBAL STYLES
+        ========================================================= */
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+            background:
+                radial-gradient(
+                    1200px 600px at 80% -10%,
+                    #173126 0,
+                    transparent 60%
+                ),
+                var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+        }
+
+        /* =========================================================
+           HEADER
+        ========================================================= */
+        header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 18px 28px;
+            border-bottom: 1px solid var(--line);
+            position: sticky;
+            top: 0;
+            background: rgba(13, 21, 18, 0.85);
+            backdrop-filter: blur(10px);
+            z-index: 20;
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .logo {
+            width: 38px;
+            height: 38px;
+            border-radius: 10px;
+            background: linear-gradient(135deg, var(--green), #1b8f57);
+            display: grid;
+            place-items: center;
+            font-size: 20px;
+        }
+
+        .brand h1 {
+            font-size: 18px;
+            letter-spacing: 0.3px;
+        }
+
+        .brand p {
+            font-size: 12px;
+            color: var(--muted);
+        }
+
+        .actions {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        /* =========================================================
+           BUTTONS AND FORM ELEMENTS
+        ========================================================= */
+        button,
+        select,
+        input {
+            font: inherit;
+            color: var(--text);
+        }
+
+        .btn {
+            background: var(--panel2);
+            border: 1px solid var(--line);
+            padding: 9px 14px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 13px;
+            transition: 0.15s;
+        }
+
+        .btn:hover {
+            border-color: var(--green);
+        }
+
+        .btn.primary {
+            background: var(--green);
+            color: #06210f;
+            border-color: var(--green);
+            font-weight: 600;
+        }
+
+        /* =========================================================
+           MAIN CONTENT
+        ========================================================= */
+        main {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 24px 28px 60px;
+        }
+
+        /* =========================================================
+           FILTERS
+        ========================================================= */
+        .filters {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            align-items: end;
+            background: var(--panel);
+            border: 1px solid var(--line);
+            border-radius: 14px;
+            padding: 14px 16px;
+            margin-bottom: 20px;
+        }
+
+        .f {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .f label {
+            font-size: 11px;
+            color: var(--muted);
+            text-transform: uppercase;
+            letter-spacing: 0.6px;
+        }
+
+        .f input,
+        .f select {
+            background: var(--bg);
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            padding: 8px 10px;
+            font-size: 13px;
+            min-width: 130px;
+        }
+
+        .presets {
+            display: flex;
+            gap: 6px;
+        }
+
+        .presets .btn {
+            padding: 8px 11px;
+        }
+
+        .presets .btn.active {
+            border-color: var(--green);
+            color: var(--green);
+        }
+
+        /* =========================================================
+           KPI CARDS
+        ========================================================= */
+        .kpis {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+            gap: 14px;
+            margin-bottom: 18px;
+        }
+
+        .kpi {
+            background: var(--panel);
+            border: 1px solid var(--line);
+            border-radius: 14px;
+            padding: 16px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .kpi:before {
+            content: "";
+            position: absolute;
+            inset: 0 auto 0 0;
+            width: 3px;
+            background: var(--c, var(--green));
+        }
+
+        .kpi .l {
+            font-size: 12px;
+            color: var(--muted);
+        }
+
+        .kpi .v {
+            font-size: 30px;
+            font-weight: 700;
+            margin: 6px 0 4px;
+        }
+
+        .kpi .s {
+            font-size: 12px;
+            color: var(--muted);
+        }
+
+        .up {
+            color: var(--red);
+        }
+
+        .down {
+            color: var(--green);
+        }
+
+        /* =========================================================
+           INSIGHTS
+        ========================================================= */
+        .insights {
+            background: linear-gradient(135deg, #17352a, #14201b);
+            border: 1px solid #28523f;
+            border-radius: 14px;
+            padding: 16px 20px;
+            margin-bottom: 18px;
+        }
+
+        .insights h3 {
+            font-size: 13px;
+            color: var(--lime);
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            margin-bottom: 8px;
+        }
+
+        .insights li {
+            margin: 6px 0 6px 18px;
+            font-size: 14px;
+            line-height: 1.45;
+        }
+
+        /* =========================================================
+           GRID AND CARDS
+        ========================================================= */
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(12, 1fr);
+            gap: 14px;
+        }
+
+        .card {
+            background: var(--panel);
+            border: 1px solid var(--line);
+            border-radius: 14px;
+            padding: 16px;
+            min-width: 0;
+        }
+
+        .card h2 {
+            font-size: 14px;
+            margin-bottom: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .card h2 span {
+            font-size: 11px;
+            color: var(--muted);
+            font-weight: 400;
+        }
+
+        .c8 {
+            grid-column: span 8;
+        }
+
+        .c4 {
+            grid-column: span 4;
+        }
+
+        .c6 {
+            grid-column: span 6;
+        }
+
+        .c12 {
+            grid-column: span 12;
+        }
+
+        /* =========================================================
+           CHARTS AND MAP
+        ========================================================= */
+        .chart {
+            position: relative;
+            height: 280px;
+        }
+
+        #map {
+            height: 360px;
+            border-radius: 10px;
+            background: #0a110e;
+        }
+
+        /* =========================================================
+           TABLES
+        ========================================================= */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+
+        th {
+            text-align: left;
+            color: var(--muted);
+            font-weight: 500;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            padding: 6px 8px;
+            border-bottom: 1px solid var(--line);
+        }
+
+        td {
+            padding: 9px 8px;
+            border-bottom: 1px solid #1c2c25;
+        }
+
+        /* =========================================================
+           PILLS AND PROGRESS BARS
+        ========================================================= */
+        .pill {
+            display: inline-block;
+            padding: 2px 9px;
+            border-radius: 99px;
+            font-size: 11px;
+            background: #233a30;
+            color: var(--lime);
+        }
+
+        .bar {
+            height: 6px;
+            border-radius: 4px;
+            background: #22362d;
+            overflow: hidden;
+            min-width: 80px;
+        }
+
+        .bar > i {
+            display: block;
+            height: 100%;
+            background: var(--green);
+        }
+
+        /* =========================================================
+           LOGIN OVERLAY
+        ========================================================= */
+        .overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(5, 10, 8, 0.88);
+            backdrop-filter: blur(6px);
+            display: grid;
+            place-items: center;
+            z-index: 50;
+        }
+
+        .login {
+            width: min(420px, 92vw);
+            background: var(--panel);
+            border: 1px solid var(--line);
+            border-radius: 18px;
+            padding: 28px;
+        }
+
+        .login h2 {
+            margin: 10px 0 4px;
+        }
+
+        .login p {
+            color: var(--muted);
+            font-size: 13px;
+            margin-bottom: 16px;
+        }
+
+        .login .f {
+            margin-bottom: 12px;
+        }
+
+        .login input {
+            width: 100%;
+        }
+
+        .err {
+            color: var(--red);
+            font-size: 13px;
+            min-height: 18px;
+            margin-bottom: 8px;
+        }
+
+        /* =========================================================
+           OTHER UI
+        ========================================================= */
+        .empty {
+            color: var(--muted);
+            text-align: center;
+            padding: 40px 0;
+            font-size: 14px;
+        }
+
+        .banner {
+            background: #3a2d12;
+            border: 1px solid #6b5217;
+            color: var(--amber);
+            padding: 8px 14px;
+            border-radius: 10px;
+            font-size: 13px;
+            margin-bottom: 14px;
+            display: none;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        /* =========================================================
+           RESPONSIVE DESIGN
+        ========================================================= */
+        @media (max-width: 980px) {
+            .c8,
+            .c4,
+            .c6 {
+                grid-column: span 12;
+            }
+
+            header {
+                padding: 14px 16px;
+            }
+
+            main {
+                padding: 16px;
+            }
+        }
+
+        /* =========================================================
+           PRINT STYLES
+        ========================================================= */
+        @media print {
+            body {
+                background: #fff;
+                color: #000;
+            }
+
+            header .actions,
+            .filters,
+            .overlay {
+                display: none !important;
+            }
+
+            .card,
+            .kpi,
+            .insights {
+                background: #fff;
+                border: 1px solid #ccc;
+                color: #000;
+                break-inside: avoid;
+            }
+
+            .kpi .l,
+            .kpi .s,
+            th,
+            .card h2 span {
+                color: #444;
+            }
+
+            .brand p {
+                color: #444;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- =========================================================
+         LOGIN OVERLAY
+    ========================================================= -->
+    <div class="overlay" id="loginOverlay">
+
+        <form class="login" id="loginForm" autocomplete="on">
+
+            <div class="logo">🐘</div>
+
+            <h2>WildGuard Analytics</h2>
+
+            <p>
+                Sign in with a <b>manager</b> account to view conservation reports.
+            </p>
+
+            <div class="f">
+                <label>API base URL</label>
+                <input
+                    id="apiUrl"
+                    value="http://localhost:8080"
+                >
+            </div>
+
+            <div class="f">
+                <label>Username</label>
+                <input
+                    id="username"
+                    autocomplete="username"
+                >
+            </div>
+
+            <div class="f">
+                <label>Password</label>
+                <input
+                    id="password"
+                    type="password"
+                    autocomplete="current-password"
+                >
+            </div>
+
+            <div class="err" id="loginErr"></div>
+
+            <button
+                class="btn primary"
+                style="width:100%;margin-bottom:8px"
+                type="submit"
+            >
+                Sign in
+            </button>
+
+            <button
+                class="btn"
+                style="width:100%"
+                type="button"
+                id="demoBtn"
+            >
+                Preview with demo data
+            </button>
+
+        </form>
+    </div>
+
+    <!-- =========================================================
+         HEADER
+    ========================================================= -->
+    <header>
+
+        <div class="brand">
+
+            <div class="logo">🐘</div>
+
+            <div>
+                <h1>WildGuard · Conservation Analytics</h1>
+                <p id="subtitle">
+                    Incident intelligence for anti-poaching operations
+                </p>
+            </div>
+
+        </div>
+
+        <div class="actions">
+
+            <span class="pill" id="userPill"></span>
+
+            <button class="btn" id="csvBtn">
+                ⬇ Export CSV
+            </button>
+
+            <button class="btn primary" id="printBtn">
+                🖨 Print / Save PDF
+            </button>
+
+            <button class="btn" id="logoutBtn">
+                Sign out
+            </button>
+
+        </div>
+
+    </header>
+
+    <!-- =========================================================
+         MAIN CONTENT
+    ========================================================= -->
+    <main>
+
+        <!-- Demo Mode Banner -->
+        <div class="banner" id="demoBanner">
+            Demo mode: showing generated sample data, not live incidents.
+        </div>
+
+        <!-- =====================================================
+             FILTERS
+        ===================================================== -->
+        <section class="filters">
+
+            <div class="presets" id="presets">
+
+                <button class="btn" data-d="7">
+                    7d
+                </button>
+
+                <button class="btn active" data-d="30">
+                    30d
+                </button>
+
+                <button class="btn" data-d="90">
+                    90d
+                </button>
+
+                <button class="btn" data-d="365">
+                    1y
+                </button>
+
+            </div>
+
+            <div class="f">
+                <label>From</label>
+                <input type="date" id="from">
+            </div>
+
+            <div class="f">
+                <label>To</label>
+                <input type="date" id="to">
+            </div>
+
+            <div class="f">
+                <label>Type</label>
+
+                <select id="type">
+                    <option value="">All types</option>
+                </select>
+            </div>
+
+            <div class="f">
+                <label>Severity</label>
+
+                <select id="severity">
+                    <option value="">All</option>
+                    <option>LOW</option>
+                    <option>MEDIUM</option>
+                    <option>HIGH</option>
+                    <option>CRITICAL</option>
+                </select>
+            </div>
+
+            <div class="f">
+                <label>Ranger</label>
+                <input
+                    id="ranger"
+                    placeholder="username"
+                >
+            </div>
+
+            <button class="btn primary" id="applyBtn">
+                Apply
+            </button>
+
+        </section>
+
+        <!-- =====================================================
+             KPI SECTION
+        ===================================================== -->
+        <section class="kpis" id="kpis"></section>
+
+        <!-- =====================================================
+             INSIGHTS
+        ===================================================== -->
+        <section class="insights" id="insights">
+
+            <h3>✨ Key insights</h3>
+
+            <ul id="insightList"></ul>
+
+        </section>
+
+        <!-- =====================================================
+             ANALYTICS GRID
+        ===================================================== -->
+        <section class="grid">
+
+            <!-- Incident Trend -->
+            <div class="card c8">
+
+                <h2>
+                    Incident trend
+                    <span>daily reports vs critical</span>
+                </h2>
+
+                <div class="chart">
+                    <canvas id="trendChart"></canvas>
+                </div>
+
+            </div>
+
+            <!-- Incident Type -->
+            <div class="card c4">
+
+                <h2>
+                    By incident type
+                </h2>
+
+                <div class="chart">
+                    <canvas id="typeChart"></canvas>
+                </div>
+
+            </div>
+
+            <!-- Hotspot Map -->
+            <div class="card c8">
+
+                <h2>
+                    Hotspot map
+                    <span>
+                        ~1 km grid · size = reports · colour = severity
+                    </span>
+                </h2>
+
+                <div id="map"></div>
+
+            </div>
+
+            <!-- Top Hotspots -->
+            <div class="card c4">
+
+                <h2>
+                    Top hotspots
+                </h2>
+
+                <div id="hotspotTable"></div>
+
+            </div>
+
+            <!-- Severity -->
+            <div class="card c4">
+
+                <h2>
+                    By severity
+                </h2>
+
+                <div class="chart">
+                    <canvas id="sevChart"></canvas>
+                </div>
+
+            </div>
+
+            <!-- Time of Day -->
+            <div class="card c4">
+
+                <h2>
+                    Time of day
+                    <span>when reports happen</span>
+                </h2>
+
+                <div class="chart">
+                    <canvas id="hourChart"></canvas>
+                </div>
+
+            </div>
+
+            <!-- Day of Week -->
+            <div class="card c4">
+
+                <h2>
+                    Day of week
+                </h2>
+
+                <div class="chart">
+                    <canvas id="dowChart"></canvas>
+                </div>
+
+            </div>
+
+            <!-- Ranger Activity -->
+            <div class="card c8">
+
+                <h2>
+                    Ranger activity
+                    <span>top reporters</span>
+                </h2>
+
+                <div id="rangerTable"></div>
+
+            </div>
+
+            <!-- Sync Status -->
+            <div class="card c4">
+
+                <h2>
+                    Sync status
+                </h2>
+
+                <div class="chart">
+                    <canvas id="syncChart"></canvas>
+                </div>
+
+            </div>
+
+        </section>
+
+    </main>
+
+    <!-- =========================================================
+         EXTERNAL JAVASCRIPT LIBRARIES
+    ========================================================= -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+
+    <!-- =========================================================
+         APPLICATION JAVASCRIPT
+    ========================================================= -->
+    <script>
+
+        /* =========================================================
+           CONSTANTS
+        ========================================================= */
+
+        const TYPES = [
+            "SNARE",
+            "CARCASS",
+            "POACHER_TRACK",
+            "ILLEGAL_CAMP",
+            "GUNSHOT_HEARD",
+            "TRAP",
+            "ILLEGAL_LOGGING",
+            "FENCE_BREACH",
+            "OTHER"
+        ];
+
+        const SEV = [
+            "LOW",
+            "MEDIUM",
+            "HIGH",
+            "CRITICAL"
+        ];
+
+        const SEV_COLOR = {
+            LOW: "#3ddc84",
+            MEDIUM: "#f5b942",
+            HIGH: "#ff8a4c",
+            CRITICAL: "#ff5c5c"
+        };
+
+        const PALETTE = [
+            "#3ddc84",
+            "#5cc8ff",
+            "#f5b942",
+            "#ff8a4c",
+            "#ff5c5c",
+            "#b6e35a",
+            "#a78bfa",
+            "#f472b6",
+            "#8fa89c"
+        ];
+
+        /* =========================================================
+           HELPER FUNCTIONS
+        ========================================================= */
+
+        const $ = id => document.getElementById(id);
+
+        const esc = s =>
+            String(s ?? "").replace(
+                /[&<>"']/g,
+                c => ({
+                    "&": "&amp;",
+                    "<": "&lt;",
+                    ">": "&gt;",
+                    '"': "&quot;",
+                    "'": "&#39;"
+                }[c])
+            );
+
+        const pretty = s =>
+            String(s || "")
+                .replace(/_/g, " ")
+                .toLowerCase()
+                .replace(/\b\w/g, c => c.toUpperCase());
+
+        /* =========================================================
+           APPLICATION STATE
+        ========================================================= */
+
+        const state = {
+            api: "",
+            token: null,
+            demo: false,
+            charts: {},
+            map: null,
+            layer: null,
+            demoData: null
+        };
+
+        /* =========================================================
+           INITIALIZATION
+        ========================================================= */
+
+        TYPES.forEach(t => {
+
+            const o = document.createElement("option");
+
+            o.value = t;
+            o.textContent = pretty(t);
+
+            $("type").appendChild(o);
+        });
+
+        Chart.defaults.color = "#8fa89c";
+        Chart.defaults.borderColor = "#243830";
+        Chart.defaults.font.family = "Inter,system-ui,sans-serif";
+
+        setRange(30);
+
+        try {
+
+            const t = sessionStorage.getItem("wg_token");
+            const a = sessionStorage.getItem("wg_api");
+            const u = sessionStorage.getItem("wg_user");
+
+            if (t && a) {
+
+                state.token = t;
+                state.api = a;
+
+                $("userPill").textContent = u || "";
+
+                $("loginOverlay").classList.add("hidden");
+
+                load();
+            }
+
+        } catch (e) {}
+
+        /* =========================================================
+           DATE RANGE
+        ========================================================= */
+
+        function iso(d) {
+            return d.toISOString().slice(0, 10);
+        }
+
+        function setRange(days) {
+
+            const to = new Date();
+            const from = new Date();
+
+            from.setDate(to.getDate() - (days - 1));
+
+            $("from").value = iso(from);
+            $("to").value = iso(to);
+
+            document
+                .querySelectorAll("#presets .btn")
+                .forEach(
+                    b =>
+                        b.classList.toggle(
+                            "active",
+                            +b.dataset.d === days
+                        )
+                );
+        }
+
+        document
+            .querySelectorAll("#presets .btn")
+            .forEach(
+                b =>
+                    (b.onclick = () => {
+                        setRange(+b.dataset.d);
+                        load();
+                    })
+            );
+
+        $("applyBtn").onclick = load;
+
+        $("printBtn").onclick = () => window.print();
+
+        $("logoutBtn").onclick = () => {
+
+            try {
+                sessionStorage.clear();
+            } catch (e) {}
+
+            location.reload();
+        };
+
+        /* =========================================================
+           AUTHENTICATION
+        ========================================================= */
+
+        $("loginForm").onsubmit = async e => {
+
+            e.preventDefault();
+
+            $("loginErr").textContent = "";
+
+            const api = $("apiUrl").value.replace(/\/+$/, "");
+
+            try {
+
+                const r = await fetch(
+                    api + "/api/auth/login",
+                    {
+                        method: "POST",
+
+                        headers: {
+                            "Content-Type": "application/json"
+                        },
+
+                        body: JSON.stringify({
+                            username: $("username").value.trim(),
+                            password: $("password").value
+                        })
+                    }
+                );
+
+                const d = await r.json().catch(() => ({}));
+
+                if (!r.ok) {
+                    throw new Error(
+                        d.message || "Login failed (" + r.status + ")"
+                    );
+                }
+
+                if (d.role !== "ROLE_MANAGER") {
+                    throw new Error(
+                        "Analytics is available to MANAGER accounts only."
+                    );
+                }
+
+                state.api = api;
+                state.token = d.token;
+                state.demo = false;
+
+                try {
+
+                    sessionStorage.setItem(
+                        "wg_token",
+                        d.token
+                    );
+
+                    sessionStorage.setItem(
+                        "wg_api",
+                        api
+                    );
+
+                    sessionStorage.setItem(
+                        "wg_user",
+                        d.fullName || d.username
+                    );
+
+                } catch (_) {}
+
+                $("userPill").textContent =
+                    d.fullName || d.username;
+
+                $("loginOverlay").classList.add("hidden");
+
+                load();
+
+            } catch (err) {
+
+                $("loginErr").textContent =
+                    err.message.includes("fetch")
+                        ? "Cannot reach the API. Is the backend running?"
+                        : err.message;
+            }
+        };
+
+        $("demoBtn").onclick = () => {
+
+            state.demo = true;
+            state.demoData = makeDemo();
+
+            $("userPill").textContent = "Demo";
+
+            $("demoBanner").style.display = "block";
+
+            $("loginOverlay").classList.add("hidden");
+
+            load();
+        };
+
+        /* =========================================================
+           FILTER PARAMETERS
+        ========================================================= */
+
+        function params() {
+
+            const p = new URLSearchParams({
+                from: $("from").value,
+                to: $("to").value,
+                tz:
+                    Intl.DateTimeFormat()
+                        .resolvedOptions()
+                        .timeZone || "UTC"
+            });
+
+            if ($("type").value) {
+                p.set("type", $("type").value);
+            }
+
+            if ($("severity").value) {
+                p.set("severity", $("severity").value);
+            }
+
+            if ($("ranger").value.trim()) {
+                p.set(
+                    "ranger",
+                    $("ranger").value.trim()
+                );
+            }
+
+            return p;
+        }
+
+        /* =========================================================
+           LOAD ANALYTICS DATA
+        ========================================================= */
+
+        async function load() {
+
+            try {
+
+                let data;
+
+                if (state.demo) {
+
+                    data = demoDashboard();
+
+                } else {
+
+                    const r = await fetch(
+                        state.api +
+                            "/api/analytics/dashboard?" +
+                            params(),
+                        {
+                            headers: {
+                                Authorization:
+                                    "Bearer " + state.token
+                            }
+                        }
+                    );
+
+                    if (r.status === 401) {
+
+                        try {
+                            sessionStorage.clear();
+                        } catch (e) {}
+
+                        location.reload();
+
+                        return;
+                    }
+
+                    if (r.status === 403) {
+
+                        alert(
+                            "Your account does not have permission to view analytics (MANAGER role required)."
+                        );
+
+                        return;
+                    }
+
+                    if (!r.ok) {
+
+                        const d =
+                            await r.json().catch(() => ({}));
+
+                        throw new Error(
+                            d.message ||
+                                "Request failed " +
+                                    r.status
+                        );
+                    }
+
+                    data = await r.json();
+                }
+
+                render(data);
+
+            } catch (e) {
+
+                alert(
+                    "Could not load analytics: " +
+                        e.message
+                );
+            }
+        }
+
+        /* =========================================================
+           CSV EXPORT
+        ========================================================= */
+
+        $("csvBtn").onclick = async () => {
+
+            if (state.demo) {
+
+                const rows =
+                    state.demoData.filter(passFilter);
+
+                const csv =
+                    "id,timestamp,type,severity,ranger,latitude,longitude,duplicate\n" +
+                    rows
+                        .map(i =>
+                            [
+                                i.id,
+                                i.ts.toISOString(),
+                                i.type,
+                                i.sev,
+                                i.ranger,
+                                i.lat,
+                                i.lng,
+                                i.dup
+                            ].join(",")
+                        )
+                        .join("\n");
+
+                dl(csv);
+
+                return;
+            }
+
+            const r = await fetch(
+                state.api +
+                    "/api/analytics/export?" +
+                    params(),
+                {
+                    headers: {
+                        Authorization:
+                            "Bearer " + state.token
+                    }
+                }
+            );
+
+            if (!r.ok) {
+
+                alert(
+                    "Export failed (" +
+                        r.status +
+                        ")"
+                );
+
+                return;
+            }
+
+            dl(await r.text());
+        };
+
+        function dl(text) {
+
+            const a =
+                document.createElement("a");
+
+            a.href =
+                URL.createObjectURL(
+                    new Blob(
+                        [text],
+                        {
+                            type: "text/csv"
+                        }
+                    )
+                );
+
+            a.download =
+                "wildguard-incident-report.csv";
+
+            a.click();
+
+            URL.revokeObjectURL(a.href);
+        }
+
+        /* =========================================================
+           CHART CREATION
+        ========================================================= */
+
+        function mk(id, cfg) {
+
+            if (state.charts[id]) {
+                state.charts[id].destroy();
+            }
+
+            state.charts[id] =
+                new Chart($(id), cfg);
+        }
+
+        const noLegend = {
+            plugins: {
+                legend: {
+                    display: false
+                }
+            },
+
+            maintainAspectRatio: false,
+
+            responsive: true
+        };
+
+        /* =========================================================
+           RENDER DASHBOARD
+        ========================================================= */
+
+        function render(d) {
+
+            const s = d.summary;
+
+            $("subtitle").textContent =
+                `${d.from} → ${d.to} · ${s.totalIncidents} incidents · generated ${new Date(
+                    d.generatedAt
+                ).toLocaleString()}`;
+
+            const ch = s.changePercent;
+
+            const chTxt =
+                ch == null
+                    ? "no prior data"
+                    : `${ch > 0 ? "▲" : "▼"} ${Math.abs(
+                          ch
+                      )}% vs previous period`;
+
+            /* -----------------------------------------------------
+               KPI DATA
+            ----------------------------------------------------- */
+
+            const kp = [
+                [
+                    "Total incidents",
+                    s.totalIncidents,
+                    chTxt,
+                    "#3ddc84",
+                    ch == null
+                        ? ""
+                        : ch > 0
+                        ? "up"
+                        : "down"
+                ],
+
+                [
+                    "Critical",
+                    s.criticalIncidents,
+                    `${s.criticalSharePercent}% of all · ${s.highIncidents} high`,
+                    "#ff5c5c",
+                    ""
+                ],
+
+                [
+                    "Avg / day",
+                    s.avgIncidentsPerDay,
+                    "incidents per day",
+                    "#5cc8ff",
+                    ""
+                ],
+
+                [
+                    "Avg severity",
+                    s.avgSeverityScore + " / 4",
+                    "1 = low · 4 = critical",
+                    "#f5b942",
+                    ""
+                ],
+
+                [
+                    "Active rangers",
+                    s.activeRangers,
+                    "submitted reports",
+                    "#b6e35a",
+                    ""
+                ],
+
+                [
+                    "Duplicates flagged",
+                    s.duplicateFlagged,
+                    `${s.duplicateRatePercent}% of reports`,
+                    "#a78bfa",
+                    ""
+                ]
+            ];
+
+            $("kpis").innerHTML =
+                kp
+                    .map(
+                        k =>
+                            `<div class="kpi" style="--c:${k[3]}">
+                                <div class="l">${k[0]}</div>
+                                <div class="v">${esc(k[1])}</div>
+                                <div class="s ${k[4]}">${esc(k[2])}</div>
+                            </div>`
+                    )
+                    .join("");
+
+            /* -----------------------------------------------------
+               INSIGHTS
+            ----------------------------------------------------- */
+
+            $("insightList").innerHTML =
+                d.insights
+                    .map(i => `<li>${esc(i)}</li>`)
+                    .join("");
+
+            /* -----------------------------------------------------
+               INCIDENT TREND CHART
+            ----------------------------------------------------- */
+
+            mk("trendChart", {
+
+                type: "line",
+
+                data: {
+
+                    labels:
+                        d.dailyTrend.map(
+                            p => p.date.slice(5)
+                        ),
+
+                    datasets: [
+
+                        {
+                            label: "All incidents",
+
+                            data:
+                                d.dailyTrend.map(
+                                    p => p.total
+                                ),
+
+                            borderColor:
+                                "#3ddc84",
+
+                            backgroundColor:
+                                "rgba(61,220,132,.15)",
+
+                            fill: true,
+
+                            tension: 0.35,
+
+                            pointRadius:
+                                d.dailyTrend.length > 60
+                                    ? 0
+                                    : 3
+                        },
+
+                        {
+                            label: "Critical",
+
+                            data:
+                                d.dailyTrend.map(
+                                    p => p.critical
+                                ),
+
+                            borderColor:
+                                "#ff5c5c",
+
+                            tension: 0.35,
+
+                            pointRadius: 0,
+
+                            borderDash: [5, 4]
+                        }
+                    ]
+                },
+
+                options: {
+
+                    maintainAspectRatio: false,
+
+                    interaction: {
+                        mode: "index",
+                        intersect: false
+                    },
+
+                    scales: {
+
+                        y: {
+                            beginAtZero: true,
+
+                            ticks: {
+                                precision: 0
+                            }
+                        },
+
+                        x: {
+                            ticks: {
+                                maxTicksLimit: 12
+                            }
+                        }
+                    }
+                }
+            });
+
+            /* -----------------------------------------------------
+               INCIDENT TYPE CHART
+            ----------------------------------------------------- */
+
+            mk("typeChart", {
+
+                type: "doughnut",
+
+                data: {
+
+                    labels:
+                        d.byType.map(
+                            x => pretty(x.label)
+                        ),
+
+                    datasets: [
+
+                        {
+                            data:
+                                d.byType.map(
+                                    x => x.count
+                                ),
+
+                            backgroundColor:
+                                PALETTE,
+
+                            borderWidth: 0
+                        }
+                    ]
+                },
+
+                options: {
+
+                    maintainAspectRatio: false,
+
+                    cutout: "62%",
+
+                    plugins: {
+
+                        legend: {
+                            position: "bottom",
+
+                            labels: {
+                                boxWidth: 10,
+                                font: {
+                                    size: 11
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+
+            /* -----------------------------------------------------
+               SEVERITY CHART
+            ----------------------------------------------------- */
+
+            mk("sevChart", {
+
+                type: "bar",
+
+                data: {
+
+                    labels:
+                        d.bySeverity.map(
+                            x => x.label
+                        ),
+
+                    datasets: [
+
+                        {
+                            data:
+                                d.bySeverity.map(
+                                    x => x.count
+                                ),
+
+                            backgroundColor:
+                                d.bySeverity.map(
+                                    x =>
+                                        SEV_COLOR[
+                                            x.label
+                                        ]
+                                ),
+
+                            borderRadius: 6
+                        }
+                    ]
+                },
+
+                options: {
+
+                    ...noLegend,
+
+                    scales: {
+
+                        y: {
+                            beginAtZero: true,
+
+                            ticks: {
+                                precision: 0
+                            }
+                        }
+                    }
+                }
+            });
+
+            /* -----------------------------------------------------
+               HOUR OF DAY CHART
+            ----------------------------------------------------- */
+
+            mk("hourChart", {
+
+                type: "bar",
+
+                data: {
+
+                    labels:
+                        d.byHourOfDay.map(
+                            x => x.label.slice(0, 2)
+                        ),
+
+                    datasets: [
+
+                        {
+                            data:
+                                d.byHourOfDay.map(
+                                    x => x.count
+                                ),
+
+                            backgroundColor:
+                                "#5cc8ff",
+
+                            borderRadius: 3
+                        }
+                    ]
+                },
+
+                options: {
+
+                    ...noLegend,
+
+                    scales: {
+
+                        y: {
+                            beginAtZero: true,
+
+                            ticks: {
+                                precision: 0
+                            }
+                        }
+                    }
+                }
+            });
+
+            /* -----------------------------------------------------
+               DAY OF WEEK CHART
+            ----------------------------------------------------- */
+
+            mk("dowChart", {
+
+                type: "bar",
+
+                data: {
+
+                    labels:
+                        d.byDayOfWeek.map(
+                            x => x.label
+                        ),
+
+                    datasets: [
+
+                        {
+                            data:
+                                d.byDayOfWeek.map(
+                                    x => x.count
+                                ),
+
+                            backgroundColor:
+                                "#b6e35a",
+
+                            borderRadius: 6
+                        }
+                    ]
+                },
+
+                options: {
+
+                    ...noLegend,
+
+                    scales: {
+
+                        y: {
+                            beginAtZero: true,
+
+                            ticks: {
+                                precision: 0
+                            }
+                        }
+                    }
+                }
+            });
+
+            /* -----------------------------------------------------
+               SYNC STATUS CHART
+            ----------------------------------------------------- */
+
+            mk("syncChart", {
+
+                type: "doughnut",
+
+                data: {
+
+                    labels:
+                        d.bySyncStatus.map(
+                            x => pretty(x.label)
+                        ),
+
+                    datasets: [
+
+                        {
+                            data:
+                                d.bySyncStatus.map(
+                                    x => x.count
+                                ),
+
+                            backgroundColor: [
+                                "#3ddc84",
+                                "#f5b942",
+                                "#ff5c5c",
+                                "#8fa89c"
+                            ],
+
+                            borderWidth: 0
+                        }
+                    ]
+                },
+
+                options: {
+
+                    maintainAspectRatio: false,
+
+                    cutout: "62%",
+
+                    plugins: {
+
+                        legend: {
+                            position: "bottom",
+
+                            labels: {
+                                boxWidth: 10,
+
+                                font: {
+                                    size: 11
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+
+            /* -----------------------------------------------------
+               HOTSPOT TABLE
+            ----------------------------------------------------- */
+
+            const maxH =
+                Math.max(
+                    1,
+                    ...d.hotspots.map(
+                        h => h.count
+                    )
+                );
+
+            $("hotspotTable").innerHTML =
+                d.hotspots.length
+                    ? `<table>
+                        <tr>
+                            <th>#</th>
+                            <th>Area</th>
+                            <th>Reports</th>
+                        </tr>` +
+                      d.hotspots
+                          .map(
+                              (h, i) =>
+                                  `<tr>
+                                    <td>${i + 1}</td>
+
+                                    <td>
+                                        ${h.latitude.toFixed(
+                                            3
+                                        )},
+                                        ${h.longitude.toFixed(
+                                            3
+                                        )}
+                                        <br>
+
+                                        <span class="pill">
+                                            ${esc(
+                                                pretty(
+                                                    h.dominantType
+                                                )
+                                            )}
+                                        </span>
+                                    </td>
+
+                                    <td>
+                                        ${
+                                            h.count
+                                        }
+
+                                        ${
+                                            h.criticalCount
+                                                ? ` <span style="color:var(--red)">(${h.criticalCount}⚠)</span>`
+                                                : ""
+                                        }
+
+                                        <div class="bar">
+                                            <i
+                                                style="width:${
+                                                    (h.count /
+                                                        maxH) *
+                                                    100
+                                                }%"
+                                            ></i>
+                                        </div>
+                                    </td>
+                                </tr>`
+                          )
+                          .join("") +
+                      `</table>`
+                    : `<div class="empty">
+                        No located incidents
+                    </div>`;
+
+            /* -----------------------------------------------------
+               RANGER ACTIVITY TABLE
+            ----------------------------------------------------- */
+
+            const maxR =
+                Math.max(
+                    1,
+                    ...d.rangerActivity.map(
+                        r => r.incidents
+                    )
+                );
+
+            $("rangerTable").innerHTML =
+                d.rangerActivity.length
+                    ? `<table>
+                        <tr>
+                            <th>Ranger</th>
+                            <th>Incidents</th>
+                            <th>Critical</th>
+                            <th>Last report</th>
+                        </tr>` +
+                      d.rangerActivity
+                          .map(
+                              r =>
+                                  `<tr>
+
+                                    <td>
+                                        ${esc(
+                                            r.rangerUsername
+                                        )}
+                                    </td>
+
+                                    <td style="width:40%">
+                                        <div
+                                            style="
+                                                display:flex;
+                                                gap:8px;
+                                                align-items:center
+                                            "
+                                        >
+
+                                            <b>
+                                                ${r.incidents}
+                                            </b>
+
+                                            <div
+                                                class="bar"
+                                                style="flex:1"
+                                            >
+                                                <i
+                                                    style="width:${
+                                                        (r.incidents /
+                                                            maxR) *
+                                                        100
+                                                    }%"
+                                                ></i>
+                                            </div>
+
+                                        </div>
+                                    </td>
+
+                                    <td>
+                                        ${r.criticalIncidents}
+                                    </td>
+
+                                    <td>
+                                        ${
+                                            r.lastReportAt
+                                                ? new Date(
+                                                      r.lastReportAt
+                                                  ).toLocaleString()
+                                                : "-"
+                                        }
+                                    </td>
+
+                                </tr>`
+                          )
+                          .join("") +
+                      `</table>`
+                    : `<div class="empty">
+                        No ranger activity
+                    </div>`;
+
+            /* -----------------------------------------------------
+               DRAW MAP
+            ----------------------------------------------------- */
+
+            drawMap(d.hotspots);
+        }
+
+        /* =========================================================
+           MAP
+        ========================================================= */
+
+        function drawMap(hs) {
+
+            if (typeof L === "undefined") {
+
+                $("map").innerHTML =
+                    '<div class="empty">Map library could not load (check internet).</div>';
+
+                return;
+            }
+
+            if (!state.map) {
+
+                state.map =
+                    L.map("map", {
+                        zoomControl: true
+                    });
+
+                L.tileLayer(
+                    "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+                    {
+                        maxZoom: 18,
+                        attribution:
+                            "© OpenStreetMap"
+                    }
+                ).addTo(state.map);
+
+                state.layer =
+                    L.layerGroup().addTo(
+                        state.map
+                    );
+
+                state.map.setView(
+                    [7.8, 80.7],
+                    7
+                );
+            }
+
+            state.layer.clearLayers();
+
+            if (!hs.length) {
+                return;
+            }
+
+            const maxC =
+                Math.max(
+                    ...hs.map(
+                        h => h.count
+                    )
+                );
+
+            const pts = [];
+
+            hs.forEach(h => {
+
+                const col =
+                    h.avgSeverityScore >= 3.5
+                        ? SEV_COLOR.CRITICAL
+                        : h.avgSeverityScore >= 2.5
+                        ? SEV_COLOR.HIGH
+                        : h.avgSeverityScore >= 1.5
+                        ? SEV_COLOR.MEDIUM
+                        : SEV_COLOR.LOW;
+
+                L.circleMarker(
+                    [
+                        h.latitude,
+                        h.longitude
+                    ],
+                    {
+                        radius:
+                            8 +
+                            (22 *
+                                h.count) /
+                                maxC,
+
+                        color: col,
+
+                        fillColor: col,
+
+                        fillOpacity: 0.45,
+
+                        weight: 2
+                    }
+                )
+                    .bindPopup(
+                        `<b>${h.count} incidents</b><br>
+                        ${esc(
+                            pretty(
+                                h.dominantType
+                            )
+                        )}<br>
+                        Critical: ${h.criticalCount}<br>
+                        Avg severity: ${h.avgSeverityScore}`
+                    )
+                    .addTo(state.layer);
+
+                pts.push([
+                    h.latitude,
+                    h.longitude
+                ]);
+            });
+
+            setTimeout(() => {
+
+                state.map.invalidateSize();
+
+                state.map.fitBounds(
+                    pts,
+                    {
+                        padding: [40, 40],
+                        maxZoom: 13
+                    }
+                );
+
+            }, 50);
+        }
+
+        /* =========================================================
+           DEMO DATA
+        ========================================================= */
+
+        function makeDemo() {
+
+            const rng = (() => {
+
+                let s = 42;
+
+                return () =>
+                    (s =
+                        (s * 16807) %
+                        2147483647) /
+                    2147483647;
+
+            })();
+
+            const centers = [
+                [7.95, 80.75],
+                [8.35, 80.4],
+                [7.55, 81.0],
+                [6.9, 80.6]
+            ];
+
+            const rangers = [
+                "kamal",
+                "nuwan",
+                "sachini",
+                "tharindu",
+                "amaya"
+            ];
+
+            const out = [];
+
+            const now = Date.now();
+
+            for (let i = 0; i < 520; i++) {
+
+                const c =
+                    centers[
+                        Math.floor(
+                            rng() ** 1.6 *
+                                centers.length
+                        )
+                    ];
+
+                const age =
+                    Math.floor(
+                        rng() * 400
+                    );
+
+                const hour =
+                    rng() < 0.55
+                        ? Math.floor(
+                              4 + rng() * 4
+                          )
+                        : Math.floor(
+                              rng() * 24
+                          );
+
+                const ts =
+                    new Date(
+                        now -
+                            age *
+                                864e5
+                    );
+
+                ts.setHours(
+                    hour,
+                    Math.floor(
+                        rng() * 60
+                    )
+                );
+
+                out.push({
+
+                    id: "d" + i,
+
+                    ts,
+
+                    type:
+                        TYPES[
+                            Math.floor(
+                                rng() **
+                                    1.5 *
+                                    TYPES.length
+                            )
+                        ],
+
+                    sev:
+                        SEV[
+                            Math.floor(
+                                rng() **
+                                    1.3 *
+                                    4
+                            )
+                        ],
+
+                    ranger:
+                        rangers[
+                            Math.floor(
+                                rng() *
+                                    rangers.length
+                            )
+                        ],
+
+                    lat:
+                        +(
+                            c[0] +
+                            (rng() - 0.5) *
+                                0.25
+                        ).toFixed(5),
+
+                    lng:
+                        +(
+                            c[1] +
+                            (rng() - 0.5) *
+                                0.25
+                        ).toFixed(5),
+
+                    dup:
+                        rng() < 0.07
+                });
+            }
+
+            return out;
+        }
+
+        /* =========================================================
+           DEMO FILTER
+        ========================================================= */
+
+        function passFilter(i) {
+
+            return (
+                (!$("type").value ||
+                    i.type ===
+                        $("type").value) &&
+
+                (!$("severity").value ||
+                    i.sev ===
+                        $("severity").value) &&
+
+                (!$("ranger").value.trim() ||
+                    i.ranger ===
+                        $("ranger").value.trim())
+            );
+        }
+
+        /* =========================================================
+           DEMO DASHBOARD
+        ========================================================= */
+
+        function demoDashboard() {
+
+            const from =
+                new Date(
+                    $("from").value +
+                        "T00:00:00"
+                );
+
+            const to =
+                new Date(
+                    $("to").value +
+                        "T23:59:59"
+                );
+
+            const days =
+                Math.round(
+                    (to - from) /
+                        864e5
+                );
+
+            const inR = (i, a, b) =>
+                i.ts >= a &&
+                i.ts <= b &&
+                passFilter(i);
+
+            const cur =
+                state.demoData.filter(
+                    i =>
+                        inR(
+                            i,
+                            from,
+                            to
+                        )
+                );
+
+            const prev =
+                state.demoData.filter(
+                    i =>
+                        inR(
+                            i,
+                            new Date(
+                                from -
+                                    days *
+                                        864e5
+                            ),
+                            new Date(
+                                from - 1
+                            )
+                        )
+                );
+
+            /* -----------------------------------------------------
+               COUNT HELPER
+            ----------------------------------------------------- */
+
+            const cnt = (arr, f) => {
+
+                const m = {};
+
+                arr.forEach(i => {
+
+                    const k = f(i);
+
+                    m[k] =
+                        (m[k] || 0) +
+                        1;
+                });
+
+                return m;
+            };
+
+            /* -----------------------------------------------------
+               LIST HELPER
+            ----------------------------------------------------- */
+
+            const list = m =>
+                Object.entries(m)
+                    .map(
+                        ([label, count]) => ({
+                            label,
+                            count
+                        })
+                    )
+                    .sort(
+                        (a, b) =>
+                            b.count -
+                            a.count
+                    );
+
+            /* -----------------------------------------------------
+               BASIC COUNTS
+            ----------------------------------------------------- */
+
+            const crit =
+                cur.filter(
+                    i =>
+                        i.sev ===
+                        "CRITICAL"
+                ).length;
+
+            const total =
+                cur.length;
+
+            /* -----------------------------------------------------
+               DAILY TREND
+            ----------------------------------------------------- */
+
+            const trend = [];
+
+            for (
+                let d = new Date(from);
+                d <= to;
+                d.setDate(
+                    d.getDate() + 1
+                )
+            ) {
+
+                const k = iso(d);
+
+                const day =
+                    cur.filter(
+                        i =>
+                            iso(i.ts) ===
+                            k
+                    );
+
+                trend.push({
+                    date: k,
+                    total: day.length,
+                    critical:
+                        day.filter(
+                            i =>
+                                i.sev ===
+                                "CRITICAL"
+                        ).length
+                });
+            }
+
+            /* -----------------------------------------------------
+               HOURLY DATA
+            ----------------------------------------------------- */
+
+            const hours =
+                Array.from(
+                    {
+                        length: 24
+                    },
+                    (_, h) => ({
+                        label:
+                            String(h).padStart(
+                                2,
+                                "0"
+                            ) + ":00",
+
+                        count:
+                            cur.filter(
+                                i =>
+                                    i.ts.getHours() ===
+                                    h
+                            ).length
+                    })
+                );
+
+            /* -----------------------------------------------------
+               DAY OF WEEK
+            ----------------------------------------------------- */
+
+            const dn = [
+                "Mon",
+                "Tue",
+                "Wed",
+                "Thu",
+                "Fri",
+                "Sat",
+                "Sun"
+            ];
+
+            const dows =
+                dn.map(
+                    (l, x) => ({
+                        label: l,
+
+                        count:
+                            cur.filter(
+                                i =>
+                                    (i.ts.getDay() +
+                                        6) %
+                                        7 ===
+                                    x
+                            ).length
+                    })
+                );
+
+            /* -----------------------------------------------------
+               HOTSPOT CELLS
+            ----------------------------------------------------- */
+
+            const cells = {};
+
+            cur.forEach(i => {
+
+                const k =
+                    Math.round(
+                        i.lat * 100
+                    ) +
+                    ":" +
+                    Math.round(
+                        i.lng * 100
+                    );
+
+                (
+                    cells[k] =
+                        cells[k] || []
+                ).push(i);
+            });
+
+            const hs =
+                Object.values(cells)
+                    .map(a => ({
+
+                        latitude:
+                            a.reduce(
+                                (s, i) =>
+                                    s +
+                                    i.lat,
+                                0
+                            ) /
+                            a.length,
+
+                        longitude:
+                            a.reduce(
+                                (s, i) =>
+                                    s +
+                                    i.lng,
+                                0
+                            ) /
+                            a.length,
+
+                        count:
+                            a.length,
+
+                        criticalCount:
+                            a.filter(
+                                i =>
+                                    i.sev ===
+                                    "CRITICAL"
+                            ).length,
+
+                        avgSeverityScore:
+                            +(
+                                a.reduce(
+                                    (s, i) =>
+                                        s +
+                                        SEV.indexOf(
+                                            i.sev
+                                        ) +
+                                        1,
+                                    0
+                                ) /
+                                a.length
+                            ).toFixed(2),
+
+                        dominantType:
+                            list(
+                                cnt(
+                                    a,
+                                    i =>
+                                        i.type
+                                )
+                            )[0].label
+
+                    }))
+                    .sort(
+                        (a, b) =>
+                            b.count -
+                            a.count
+                    )
+                    .slice(0, 10);
+
+            /* -----------------------------------------------------
+               RANGER ACTIVITY
+            ----------------------------------------------------- */
+
+            const rg = {};
+
+            cur.forEach(i =>
+                (
+                    rg[i.ranger] =
+                        rg[i.ranger] || []
+                ).push(i)
+            );
+
+            const ra =
+                Object.entries(rg)
+                    .map(
+                        ([u, a]) => ({
+
+                            rangerUsername:
+                                u,
+
+                            incidents:
+                                a.length,
+
+                            criticalIncidents:
+                                a.filter(
+                                    i =>
+                                        i.sev ===
+                                        "CRITICAL"
+                                ).length,
+
+                            lastReportAt:
+                                new Date(
+                                    Math.max(
+                                        ...a.map(
+                                            i =>
+                                                i.ts
+                                        )
+                                    )
+                                ).toISOString()
+
+                        })
+                    )
+                    .sort(
+                        (a, b) =>
+                            b.incidents -
+                            a.incidents
+                    );
+
+            /* -----------------------------------------------------
+               SEVERITY
+            ----------------------------------------------------- */
+
+            const sv =
+                cnt(
+                    cur,
+                    i => i.sev
+                );
+
+            /* -----------------------------------------------------
+               CHANGE PERCENTAGE
+            ----------------------------------------------------- */
+
+            const change =
+                prev.length
+                    ? +(
+                          ((total -
+                              prev.length) *
+                              100) /
+                          prev.length
+                      ).toFixed(1)
+                    : null;
+
+            /* -----------------------------------------------------
+               MOST ACTIVE HOUR
+            ----------------------------------------------------- */
+
+            const topH =
+                [...hours].sort(
+                    (a, b) =>
+                        b.count -
+                        a.count
+                )[0];
+
+            /* -----------------------------------------------------
+               INCIDENT TYPES
+            ----------------------------------------------------- */
+
+            const types =
+                list(
+                    cnt(
+                        cur,
+                        i => i.type
+                    )
+                );
+
+            /* -----------------------------------------------------
+               INSIGHTS
+            ----------------------------------------------------- */
+
+            const ins = [];
+
+            if (!total) {
+
+                ins.push(
+                    "No incidents were recorded in this period."
+                );
+
+            } else {
+
+                if (change != null) {
+
+                    ins.push(
+                        `Incident volume ${
+                            change >= 0
+                                ? "rose"
+                                : "fell"
+                        } ${Math.abs(
+                            change
+                        )}% compared with the previous period (${total} vs ${prev.length}).`
+                    );
+                }
+
+                ins.push(
+                    `${pretty(
+                        types[0].label
+                    )} is the most frequent incident type (${types[0].count} reports, ${Math.round(
+                        (types[0].count *
+                            100) /
+                            total
+                    )}% of all).`
+                );
+
+                if (crit) {
+
+                    ins.push(
+                        `${crit} critical incidents (${(
+                            (crit * 100) /
+                            total
+                        ).toFixed(
+                            1
+                        )}%) need priority follow-up.`
+                    );
+                }
+
+                if (topH.count) {
+
+                    ins.push(
+                        `Reports peak around ${topH.label} - consider scheduling patrols around that window.`
+                    );
+                }
+
+                if (
+                    hs[0] &&
+                    hs[0].count > 1
+                ) {
+
+                    ins.push(
+                        `Top hotspot near (${hs[0].latitude.toFixed(
+                            3
+                        )}, ${hs[0].longitude.toFixed(
+                            3
+                        )}) with ${
+                            hs[0].count
+                        } incidents, mostly ${pretty(
+                            hs[0].dominantType
+                        ).toLowerCase()}.`
+                    );
+                }
+            }
+
+            /* -----------------------------------------------------
+               DUPLICATES
+            ----------------------------------------------------- */
+
+            const dup =
+                cur.filter(
+                    i => i.dup
+                ).length;
+
+            /* -----------------------------------------------------
+               RETURN DASHBOARD DATA
+            ----------------------------------------------------- */
+
+            return {
+
+                from:
+                    $("from").value,
+
+                to:
+                    $("to").value,
+
+                timezone:
+                    "local",
+
+                generatedAt:
+                    new Date().toISOString(),
+
+                summary: {
+
+                    totalIncidents:
+                        total,
+
+                    previousPeriodIncidents:
+                        prev.length,
+
+                    changePercent:
+                        change,
+
+                    criticalIncidents:
+                        crit,
+
+                    highIncidents:
+                        sv.HIGH || 0,
+
+                    criticalSharePercent:
+                        total
+                            ? +(
+                                  (crit *
+                                      100) /
+                                  total
+                              ).toFixed(1)
+                            : 0,
+
+                    duplicateFlagged:
+                        dup,
+
+                    duplicateRatePercent:
+                        total
+                            ? +(
+                                  (dup *
+                                      100) /
+                                  total
+                              ).toFixed(1)
+                            : 0,
+
+                    activeRangers:
+                        ra.length,
+
+                    avgIncidentsPerDay:
+                        +(
+                            total /
+                            (days + 1)
+                        ).toFixed(2),
+
+                    avgSeverityScore:
+                        total
+                            ? +(
+                                  cur.reduce(
+                                      (s, i) =>
+                                          s +
+                                          SEV.indexOf(
+                                              i.sev
+                                          ) +
+                                          1,
+                                      0
+                                  ) /
+                                  total
+                              ).toFixed(2)
+                            : 0,
+
+                    mostCommonType:
+                        types[0]?.label,
+
+                    busiestHour:
+                        topH.count
+                            ? topH.label
+                            : null
+                },
+
+                byType:
+                    types,
+
+                bySeverity:
+                    SEV.map(
+                        l => ({
+                            label: l,
+                            count:
+                                sv[l] ||
+                                0
+                        })
+                    ),
+
+                bySyncStatus:
+                    list(
+                        cnt(
+                            cur,
+                            i =>
+                                i.dup
+                                    ? "SYNCED_DUPLICATE_FLAGGED"
+                                    : "SYNCED"
+                        )
+                    ),
+
+                dailyTrend:
+                    trend,
+
+                byHourOfDay:
+                    hours,
+
+                byDayOfWeek:
+                    dows,
+
+                hotspots:
+                    hs,
+
+                rangerActivity:
+                    ra,
+
+                insights:
+                    ins
+            };
+        }
+
+    </script>
+
+</body>
+
+</html>
