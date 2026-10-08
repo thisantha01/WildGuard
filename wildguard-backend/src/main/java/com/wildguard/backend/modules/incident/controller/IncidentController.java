@@ -29,7 +29,7 @@ public class IncidentController {
     private final IncidentService incidentService;
 
     @PostMapping("/sync")
-    @PreAuthorize("hasRole('RANGER')")
+    @PreAuthorize("hasAnyRole('RANGER', 'VILLAGER')")
     public ResponseEntity<IncidentSyncResponse> syncIncident(
             @Valid @RequestBody IncidentSyncRequest request,
             Principal principal) {
@@ -40,7 +40,7 @@ public class IncidentController {
     }
 
     @PostMapping("/sync/batch")
-    @PreAuthorize("hasRole('RANGER')")
+    @PreAuthorize("hasAnyRole('RANGER', 'VILLAGER')")
     public ResponseEntity<IncidentBatchSyncResponse> syncBatch(
             @Valid @RequestBody IncidentBatchSyncRequest batchRequest,
             Principal principal) {
@@ -51,7 +51,7 @@ public class IncidentController {
     }
 
     @GetMapping("/my-history")
-    @PreAuthorize("hasRole('RANGER')")
+    @PreAuthorize("hasAnyRole('RANGER', 'VILLAGER')")
     public ResponseEntity<List<IncidentResponse>> getMyIncidentHistory(Principal principal) {
         log.info("Ranger '{}' requested their logged incident history", principal.getName());
         List<IncidentResponse> history = incidentService.getRangerIncidentHistory(principal.getName());
