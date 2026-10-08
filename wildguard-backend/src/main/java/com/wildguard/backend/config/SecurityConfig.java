@@ -41,8 +41,21 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/auth/**").permitAll()
+                        // Swagger UI - accessible without auth in dev
+                        .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/swagger-ui.html").permitAll()
+                        // UC02: IoT ingest (API key based, security handled in service layer)
+                        .requestMatchers("/api/telemetry").permitAll()
+                        // UC02: Dev simulator endpoints
+                        .requestMatchers("/api/dev/**").permitAll()
                         .requestMatchers("/api/rangers/**").hasRole("RANGER")
                         .requestMatchers("/api/incidents/**").hasRole("RANGER")
+                        // UC02: Ranger endpoints
+                        .requestMatchers("/api/alerts/**").hasRole("RANGER")
+                        .requestMatchers("/api/sync").hasRole("RANGER")
+                        // UC02: Park Manager endpoints
+                        .requestMatchers("/api/manager/**").hasRole("MANAGER")
+                        // UC02: Technician endpoints (mapped to MANAGER role since no TECHNICIAN role exists)
+                        .requestMatchers("/api/maintenance-alerts").hasAnyRole("MANAGER", "RANGER")
                         .anyRequest().authenticated()
                 );
 
