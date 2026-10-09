@@ -469,12 +469,14 @@ class _LogIncidentScreenState extends State<LogIncidentScreen> {
                   ),
                   const SizedBox(height: 12),
 
-                  // Location Section (HCI Map placeholder + [ Drop Pin on Offline Map ])
+                  // Location Section (HCI Map + Complete Offline Fallback Suite)
                   LocationPickerWidget(
                     latitude: manager.latitude,
                     longitude: manager.longitude,
                     isGpsLost: manager.isGpsLost,
                     isLocating: manager.isLocating,
+                    locationSource: manager.locationSource,
+                    lastKnownMinutesAgo: manager.lastKnownMinutesAgo,
                     onFetchGps: () async {
                       final success = await manager.fetchLocation();
                       if (!success && mounted) {
@@ -495,7 +497,9 @@ class _LogIncidentScreenState extends State<LogIncidentScreen> {
                       }
                     },
                     onDropPin: () => manager.dropPinOnOfflineMap(),
+                    onToggleGpsLost: () => manager.toggleGpsLost(),
                     onLocationChanged: (lat, lon) => manager.setCoordinates(lat, lon),
+                    onSectorSelected: (name, lat, lon, [offset]) => manager.setSectorLocation(name, lat, lon, offset),
                   ),
                   const SizedBox(height: 12),
 
