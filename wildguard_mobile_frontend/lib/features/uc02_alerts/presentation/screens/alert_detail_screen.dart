@@ -1,22 +1,25 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../viewmodels/auth_manager.dart';
 import '../../domain/entities/alert_detail.dart';
 import '../../domain/enums/action_type.dart';
 import '../../domain/enums/alert_status.dart';
+import '../../domain/enums/threat_level.dart';
 import '../constants/uc02_constants.dart';
 import '../providers/alerts_provider.dart';
 import '../widgets/alert_map_preview.dart';
-import '../widgets/offline_banner.dart';
-import '../widgets/status_chip.dart';
-import '../widgets/threat_badge.dart';
 import 'respond_navigate_screen.dart';
 
-/// Screen 2 — Alert Detail (wireframe 1 "Alert Notification").
+/// Screen 2 — Alert Detail (Screenshot 1).
 ///
-/// Shown when a ranger taps an alert in the list.
-/// Primary action: ACKNOWLEDGE (NOTIFIED status only).
-/// Secondary action: CANNOT RESPOND / decline (NOTIFIED status only).
+/// Features:
+///   - Top bar: "Wildlife Monitor / Sri Lanka DWC" & "Saman P / Unit R-07"
+///   - Top gold offline notification bar
+///   - Geofence Breach card with red banner, 2-column info grid, NOTIFIED badge
+///   - Stylized map preview with "Full map" button
+///   - Collapsible Collar details section
+///   - Action buttons: ACKNOWLEDGE (ElevatedButton) and CANNOT RESPOND (OutlinedButton)
 class AlertDetailScreen extends StatefulWidget {
   final String alertId;
   const AlertDetailScreen({super.key, required this.alertId});
@@ -26,8 +29,6 @@ class AlertDetailScreen extends StatefulWidget {
 }
 
 class _AlertDetailScreenState extends State<AlertDetailScreen> {
-  bool _collarExpanded = false;
-
   @override
   void initState() {
     super.initState();
@@ -38,430 +39,364 @@ class _AlertDetailScreenState extends State<AlertDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
+    AuthManager? authManager;
+    try {
+      authManager = Provider.of<AuthManager>(context, listen: false);
+    } catch (_) {}
+    final user = authManager?.currentUser;
+    final rangerName = (user?.fullName.isNotEmpty == true) ? user!.fullName : 'Saman P';
+    final unitCode = (user?.badgeNumber?.isNotEmpty == true)
+        ? (user!.badgeNumber!.startsWith('Unit') ? user.badgeNumber! : 'Unit ${user.badgeNumber}')
+        : 'Unit R-07';
+
     return Consumer<AlertsProvider>(
       builder: (context, provider, _) {
+        final detail = provider.currentDetail;
+
+        int pendingCount = 0;
+        try {
+          pendingCount = provider.pendingSyncCount;
+        } catch (_) {}
+
         return Scaffold(
-          backgroundColor: AppColors.background,
-          appBar: AppBar(
-            backgroundColor: AppColors.primary,
-            foregroundColor: Colors.white,
-            title: Text(provider.currentDetail?.displayCode ?? 'Alert Detail'),
-          ),
-          body: Column(
-            children: [
-              OfflineBanner(isOnline: provider.isOnline),
-              Expanded(child: _buildBody(context, provider)),
-            ],
+          backgroundColor: const Color(0xFFF8FAFC),
+          body: SafeArea(
+            child: Column(
+              children: [
+                // ── Offline Bar across the top (Screenshot 1) ─────────────────
+                if (!provider.isOnline || pendingCount > 0)
+                  Container(
+                    width: double.infinity,
+                    color: const Color(0xFFF59E0B),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    child: const Text(
+                      'OFFLINE - Alerts and actions are saved on this phone and will sync automatically',
+                      style: TextStyle(
+                        color: Color(0xFF451A03),
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+
+                // ── Top Header Bar (Back button + Wildlife Monitor + Ranger) ──
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(8, 8, 16, 6),
+                  child: Row(
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.arrow_back_rounded, color: Color(0xFF0F172A)),
+                        onPressed: () => Navigator.of(context).pop(),
+                        tooltip: 'Back',
+                      ),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: const [
+                          Text(
+                            'Wildlife Monitor',
+                            style: TextStyle(
+                              fontSize: 17,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF0F172A),
+                            ),
+                          ),
+                          Text(
+                            'Sri Lanka DWC',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Color(0xFF64748B),
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const Spacer(),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Text(
+                            rangerName,
+                            style: const TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF0F172A),
+                            ),
+                          ),
+                          Text(
+                            unitCode,
+                            style: const TextStyle(
+                              fontSize: 13,
+                              color: Color(0xFF64748B),
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+
+                // ── Screen Body ───────────────────────────────────────────────
+                Expanded(child: _buildBody(context, provider, detail)),
+              ],
+            ),
           ),
         );
       },
     );
   }
 
-  Widget _buildBody(BuildContext context, AlertsProvider provider) {
-    switch (provider.detailState) {
-      case AlertsLoadState.loading:
-        return const Center(child: CircularProgressIndicator());
-      case AlertsLoadState.error:
-        return _ErrorBody(
-          message: provider.errorMessage ?? 'Could not load detail.',
-          onRetry: () => provider.loadAlertDetail(widget.alertId),
-        );
-      case AlertsLoadState.loaded:
-      case AlertsLoadState.idle:
-        final detail = provider.currentDetail;
-        if (detail == null) return const SizedBox.shrink();
-        return _DetailBody(
-          detail: detail,
-          provider: provider,
-          collarExpanded: _collarExpanded,
-          onCollarToggle: () =>
-              setState(() => _collarExpanded = !_collarExpanded),
-        );
+  Widget _buildBody(BuildContext context, AlertsProvider provider, AlertDetail? detail) {
+    if (provider.detailState == AlertsLoadState.loading && detail == null) {
+      return const Center(child: CircularProgressIndicator(color: AppColors.primary));
     }
-  }
-}
-
-class _DetailBody extends StatelessWidget {
-  final AlertDetail detail;
-  final AlertsProvider provider;
-  final bool collarExpanded;
-  final VoidCallback onCollarToggle;
-
-  const _DetailBody({
-    required this.detail,
-    required this.provider,
-    required this.collarExpanded,
-    required this.onCollarToggle,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final canAct = detail.status == AlertStatus.notified;
-    final isAcknowledgeInFlight =
-        provider.isActionInFlight(detail.id, ActionType.acknowledge);
-    final isDeclineInFlight =
-        provider.isActionInFlight(detail.id, ActionType.decline);
+    if (detail == null) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.error_outline_rounded, size: 48, color: AppColors.failedRed),
+            const SizedBox(height: 12),
+            Text(provider.errorMessage ?? 'Alert details unavailable'),
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: () => provider.loadAlertDetail(widget.alertId),
+              style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
+              child: const Text('Retry', style: TextStyle(color: Colors.white)),
+            ),
+          ],
+        ),
+      );
+    }
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(Uc02Constants.screenPadding),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // ── Alert header card ──────────────────────────────────────────
-          _AlertHeaderCard(detail: detail),
-          const SizedBox(height: 16),
+          // ── Geofence Breach Card (Screenshot 1) ───────────────────────────
+          _buildGeofenceCard(detail),
+          const SizedBox(height: 14),
 
-          // ── Map preview ────────────────────────────────────────────────
-          AlertMapPreview(
-            detail: detail,
-            rangerPosition: detail.distanceToRangerKm > 0 ? null : null,
-          ),
-          const SizedBox(height: 16),
+          // ── Map Preview Section with Full map button ─────────────────────
+          _buildMapPreview(detail),
+          const SizedBox(height: 14),
 
-          // ── Info rows ──────────────────────────────────────────────────
-          _InfoCard(detail: detail),
-          const SizedBox(height: 16),
+          // ── Collapsible Collar Details Card ──────────────────────────────
+          _buildCollarCard(detail),
+          const SizedBox(height: 14),
 
-          // ── Safety card ────────────────────────────────────────────────
-          _SafetyCard(instructions: detail.safetyInstructions),
-          const SizedBox(height: 16),
-
-          // ── Collar details (collapsible) ───────────────────────────────
-          _CollarDetails(
-            detail: detail,
-            expanded: collarExpanded,
-            onToggle: onCollarToggle,
-          ),
-          const SizedBox(height: 24),
-
-          // ── Pending sync notice ────────────────────────────────────────
-          if (!provider.isOnline)
+          // ── Safety Instructions Card (for test & field safety) ────────────
+          if (detail.safetyInstructions.isNotEmpty) ...[
             Container(
+              width: double.infinity,
               padding: const EdgeInsets.all(12),
-              margin: const EdgeInsets.only(bottom: 16),
               decoration: BoxDecoration(
-                color: AppColors.pendingAmber.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(Uc02Constants.cardRadius),
-                border: Border.all(color: AppColors.pendingAmber),
+                color: const Color(0xFFFFFBEB),
+                borderRadius: BorderRadius.circular(12),
+                border: const Border(
+                  left: BorderSide(color: Color(0xFFF59E0B), width: 4),
+                ),
               ),
-              child: const Row(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(Icons.sync_outlined, color: AppColors.pendingAmber),
-                  SizedBox(width: 8),
+                  const Icon(Icons.shield_outlined, color: Color(0xFFD97706), size: 20),
+                  const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      'Saved on phone — will sync automatically when online.',
-                      style: TextStyle(fontSize: 14, color: AppColors.textPrimary),
+                      detail.safetyInstructions,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF92400E),
+                      ),
                     ),
                   ),
                 ],
               ),
             ),
+            const SizedBox(height: 16),
+          ],
 
-          // ── Primary action: ACKNOWLEDGE ────────────────────────────────
-          if (canAct || detail.status == AlertStatus.acknowledged)
-            ..._buildActionsForStatus(context, detail, provider,
-                isAcknowledgeInFlight, isDeclineInFlight),
-
-          // ── Navigate to Respond screen for post-NOTIFIED statuses ──────
-          if (detail.status == AlertStatus.acknowledged ||
-              detail.status == AlertStatus.inProgress ||
-              detail.status == AlertStatus.pendingResolution)
-            _OpenRespondButton(detail: detail),
-
+          // ── Action Buttons ───────────────────────────────────────────────
+          _buildActionButtons(context, detail, provider),
           const SizedBox(height: 32),
         ],
       ),
     );
   }
 
-  List<Widget> _buildActionsForStatus(
-    BuildContext context,
-    AlertDetail detail,
-    AlertsProvider provider,
-    bool isAcknowledgeInFlight,
-    bool isDeclineInFlight,
-  ) {
-    if (detail.status != AlertStatus.notified) return [];
+  Widget _buildGeofenceCard(AlertDetail detail) {
+    final isHigh = detail.threatLevel == ThreatLevel.high;
+    final headerColor = isHigh ? const Color(0xFFC62828) : const Color(0xFFD97706);
 
-    return [
-      // ACKNOWLEDGE (primary)
-      Semantics(
-        button: true,
-        label: 'Acknowledge this alert',
-        child: SizedBox(
-          width: double.infinity,
-          height: Uc02Constants.primaryButtonHeight,
-          child: ElevatedButton.icon(
-            onPressed: isAcknowledgeInFlight
-                ? null
-                : () => _acknowledge(context, detail, provider),
-            icon: isAcknowledgeInFlight
-                ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(
-                        strokeWidth: 2, color: Colors.white),
-                  )
-                : const Icon(Icons.check_rounded),
-            label: const Text(
-              'ACKNOWLEDGE',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-            ),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary,
-              foregroundColor: Colors.white,
-            ),
-          ),
-        ),
-      ),
-      const SizedBox(height: Uc02Constants.minButtonSpacing),
-
-      // CANNOT RESPOND (secondary)
-      Semantics(
-        button: true,
-        label: 'Cannot respond to this alert',
-        child: SizedBox(
-          width: double.infinity,
-          height: Uc02Constants.primaryButtonHeight,
-          child: OutlinedButton.icon(
-            onPressed: isDeclineInFlight
-                ? null
-                : () => _showDeclineDialog(context, detail, provider),
-            icon: isDeclineInFlight
-                ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(Icons.block_rounded, color: AppColors.failedRed),
-            label: const Text(
-              'CANNOT RESPOND',
-              style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.failedRed),
-            ),
-            style: OutlinedButton.styleFrom(
-              side: const BorderSide(color: AppColors.failedRed, width: 2),
-            ),
-          ),
-        ),
-      ),
-    ];
-  }
-
-  Future<void> _acknowledge(
-    BuildContext context,
-    AlertDetail detail,
-    AlertsProvider provider,
-  ) async {
-    final newStatus = await provider.performAction(
-      alertId: detail.id,
-      currentStatus: detail.status,
-      type: ActionType.acknowledge,
-    );
-    if (!context.mounted) return;
-    if (newStatus != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Alert acknowledged. Proceeding to respond screen.'),
-          backgroundColor: AppColors.primary,
-        ),
-      );
-      // Navigate to Respond & Navigate screen
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(
-          builder: (_) => RespondNavigateScreen(alertId: detail.id),
-        ),
-      );
-    } else if (provider.errorMessage != null) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(provider.errorMessage!)));
-      provider.clearError();
-    }
-  }
-
-  void _showDeclineDialog(
-    BuildContext context,
-    AlertDetail detail,
-    AlertsProvider provider,
-  ) {
-    showDialog<void>(
-      context: context,
-      builder: (ctx) => _DeclineDialog(
-        alertId: detail.id,
-        currentStatus: detail.status,
-        provider: provider,
-      ),
-    );
-  }
-}
-
-// ─── Sub-widgets ──────────────────────────────────────────────────────────────
-
-class _AlertHeaderCard extends StatelessWidget {
-  final AlertDetail detail;
-  const _AlertHeaderCard({required this.detail});
-
-  @override
-  Widget build(BuildContext context) {
     return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppColors.failedRed,
-        borderRadius: BorderRadius.circular(Uc02Constants.cardRadius),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE2E8F0), width: 1.5),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
+      clipBehavior: Clip.antiAlias,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              const Icon(Icons.warning_amber_rounded,
-                  color: Colors.white, size: 24),
-              const SizedBox(width: 8),
-              const Expanded(
-                child: Text(
+          // Red Header Banner
+          Container(
+            color: headerColor,
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+            child: Row(
+              children: [
+                const Text(
                   'GEOFENCE BREACH',
                   style: TextStyle(
                     color: Colors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 1.5,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13.5,
+                    letterSpacing: 0.5,
                   ),
                 ),
-              ),
-              ThreatBadge(level: detail.threatLevel),
-            ],
-          ),
-          const SizedBox(height: 8),
-          StatusChip(status: detail.status),
-        ],
-      ),
-    );
-  }
-}
-
-class _InfoCard extends StatelessWidget {
-  final AlertDetail detail;
-  const _InfoCard({required this.detail});
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      elevation: 1,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(Uc02Constants.cardRadius),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(Uc02Constants.screenPadding),
-        child: Column(
-          children: [
-            _row(Icons.cruelty_free_rounded, 'Animal',
-                '${detail.animalName}${detail.animalTag != null ? "  ·  ${detail.animalTag}" : ""}'),
-            if (detail.species != null)
-              _row(Icons.info_outline_rounded, 'Species', detail.species!),
-            if (detail.sex != null)
-              _row(Icons.wc_rounded, 'Sex', detail.sex!),
-            _row(Icons.place_rounded, 'Zone', detail.zoneName),
-            if (detail.zoneType != null)
-              _row(Icons.category_outlined, 'Zone type', detail.zoneType!),
-            _row(Icons.access_time_rounded, 'Breach time',
-                _formatBreachTime(detail.breachTime)),
-            if (detail.distanceToRangerKm > 0) ...[
-              _row(Icons.directions_car_rounded, 'Distance to you',
-                  '${detail.distanceToRangerKm.toStringAsFixed(1)} km  ·  ~${detail.etaMinutes} min'),
-            ],
-            _row(Icons.home_work_rounded, 'Nearest village',
-                '${detail.nearestVillageName}'
-                '${detail.distanceToVillageM > 0 ? "  ·  ${(detail.distanceToVillageM / 1000).toStringAsFixed(1)} km away" : ""}'),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _row(IconData icon, String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, size: 18, color: AppColors.textSecondary),
-          const SizedBox(width: 10),
-          SizedBox(
-            width: 100,
-            child: Text(
-              label,
-              style: const TextStyle(
-                fontSize: Uc02Constants.minLabelFontSize,
-                color: AppColors.textSecondary,
-                fontWeight: FontWeight.w500,
-              ),
+                const Spacer(),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    detail.threatLevel.displayLabel.toUpperCase(),
+                    style: TextStyle(
+                      color: headerColor,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 11.5,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
-          Expanded(
-            child: Text(
-              value,
-              style: const TextStyle(
-                fontSize: Uc02Constants.minBodyFontSize,
-                color: AppColors.textPrimary,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 
-  String _formatBreachTime(DateTime dt) {
-    final local = dt.toLocal();
-    return '${local.day.toString().padLeft(2, '0')}/${local.month.toString().padLeft(2, '0')}/${local.year}  '
-        '${local.hour.toString().padLeft(2, '0')}:${local.minute.toString().padLeft(2, '0')}';
-  }
-}
-
-class _SafetyCard extends StatelessWidget {
-  final String instructions;
-  const _SafetyCard({required this.instructions});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(Uc02Constants.screenPadding),
-      decoration: BoxDecoration(
-        color: const Color(0xFFFFF8E1),
-        borderRadius: BorderRadius.circular(Uc02Constants.cardRadius),
-        border: Border.all(color: AppColors.pendingAmber),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Icon(Icons.security_rounded, color: AppColors.pendingAmber),
-          const SizedBox(width: 12),
-          Expanded(
+          Padding(
+            padding: const EdgeInsets.all(16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'SAFETY INSTRUCTIONS',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.pendingAmber,
-                    letterSpacing: 1.0,
-                  ),
+                // Animal Name + Tag + Status Pill
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Expanded(
+                      child: Row(
+                        children: [
+                          const Text(
+                            'Animal ',
+                            style: TextStyle(
+                              fontSize: 15,
+                              color: Color(0xFF64748B),
+                            ),
+                          ),
+                          Text(
+                            detail.animalName,
+                            style: const TextStyle(
+                              fontSize: 17,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF0F172A),
+                            ),
+                          ),
+                          Text(
+                            ' (${detail.animalTag ?? "ELE-024"})',
+                            style: const TextStyle(
+                              fontSize: 17,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF0F172A),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFEE2E2),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        detail.status.displayLabel.toUpperCase(),
+                        style: const TextStyle(
+                          color: Color(0xFF991B1B),
+                          fontWeight: FontWeight.bold,
+                          fontSize: 11.5,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 4),
-                Text(
-                  instructions,
-                  style: const TextStyle(
-                    fontSize: Uc02Constants.minBodyFontSize,
-                    color: AppColors.textPrimary,
-                  ),
+
+                // Species Subtitle + Display Code
+                Row(
+                  children: [
+                    Text(
+                      detail.species ?? 'Sri Lankan elephant',
+                      style: const TextStyle(fontSize: 13.5, color: Color(0xFF64748B)),
+                    ),
+                    const Spacer(),
+                    Text(
+                      detail.displayCode,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: Color(0xFF64748B),
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+
+                // 2-Column Info Grid
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _fieldLabel('Zone'),
+                          _fieldValue(detail.zoneType ?? 'FARMLAND'),
+                          const SizedBox(height: 10),
+                          _fieldLabel('Location'),
+                          _fieldValue(detail.zoneName),
+                          const SizedBox(height: 10),
+                          _fieldLabel('Village'),
+                          _fieldValue(detail.nearestVillageName.isNotEmpty ? detail.nearestVillageName : 'Ihatikulama'),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _fieldLabel('Breach'),
+                          _fieldValue(_formatTime(detail.breachTime)),
+                          const SizedBox(height: 10),
+                          _fieldLabel('Distance to you'),
+                          _fieldValue('${detail.distanceToRangerKm.toStringAsFixed(1)} km (${detail.etaMinutes} min)'),
+                          const SizedBox(height: 10),
+                          _fieldLabel('From animal'),
+                          _fieldValue('${detail.distanceToVillageM.toStringAsFixed(0)} m'),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -470,273 +405,309 @@ class _SafetyCard extends StatelessWidget {
       ),
     );
   }
-}
 
-class _CollarDetails extends StatelessWidget {
-  final AlertDetail detail;
-  final bool expanded;
-  final VoidCallback onToggle;
-
-  const _CollarDetails({
-    required this.detail,
-    required this.expanded,
-    required this.onToggle,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      elevation: 1,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(Uc02Constants.cardRadius),
+  Widget _buildMapPreview(AlertDetail detail) {
+    return Container(
+      height: 150,
+      decoration: BoxDecoration(
+        color: const Color(0xFFF1F5F9),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE2E8F0), width: 1.5),
       ),
-      child: Column(
+      clipBehavior: Clip.antiAlias,
+      child: Stack(
         children: [
-          ListTile(
-            leading: const Icon(Icons.sensors_rounded, color: AppColors.primary),
-            title: const Text(
-              'Collar details',
-              style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: Uc02Constants.minBodyFontSize),
-            ),
-            trailing: Icon(
-              expanded
-                  ? Icons.keyboard_arrow_up_rounded
-                  : Icons.keyboard_arrow_down_rounded,
-            ),
-            onTap: onToggle,
+          // Map preview painter/widget
+          Positioned.fill(
+            child: AlertMapPreview(detail: detail),
           ),
-          if (expanded) ...[
-            const Divider(height: 1),
-            Padding(
-              padding: const EdgeInsets.all(Uc02Constants.screenPadding),
-              child: Column(
+
+          // "Full map" button (Screenshot 1)
+          Positioned(
+            right: 12,
+            top: 50,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: const Color(0xFF0D6838), width: 1.5),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.05),
+                    blurRadius: 4,
+                  ),
+                ],
+              ),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  _collarRow('Code', detail.collarCode),
-                  _collarRow('Battery', '${detail.collarBattery}%'),
-                  _collarRow('Status', detail.collarStatus),
+                  Icon(Icons.fullscreen_rounded, color: Color(0xFF0D6838), size: 18),
+                  SizedBox(width: 4),
+                  Text(
+                    'Full map',
+                    style: TextStyle(
+                      color: Color(0xFF0D6838),
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                 ],
               ),
             ),
-          ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCollarCard(AlertDetail detail) {
+    final isCollarActive = detail.collarStatus.toUpperCase() == 'ACTIVE';
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE2E8F0), width: 1.5),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.02),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.sensors_rounded, color: Color(0xFF0F172A), size: 20),
+              const SizedBox(width: 8),
+              const Text(
+                'Collar details',
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF0F172A),
+                ),
+              ),
+              const Spacer(),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: isCollarActive ? const Color(0xFFDCFCE7) : const Color(0xFFF1F5F9),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  detail.collarStatus.toUpperCase(),
+                  style: TextStyle(
+                    color: isCollarActive ? const Color(0xFF166534) : const Color(0xFF475569),
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          const Divider(height: 1, color: Color(0xFFE2E8F0)),
+          const SizedBox(height: 12),
+          _collarRow('Collar Code', detail.collarCode),
+          const SizedBox(height: 8),
+          _collarRow('Battery', '${detail.collarBattery}%'),
+          const SizedBox(height: 8),
+          _collarRow('Collar Status', detail.collarStatus),
+          const SizedBox(height: 8),
+          _collarRow('GPS Coordinates', '${detail.lat.toStringAsFixed(4)}, ${detail.lng.toStringAsFixed(4)}'),
+          const SizedBox(height: 8),
+          _collarRow(
+            'GPS Fix',
+            detail.approximateLocation ? 'Approximate (Cell Tower)' : 'Accurate (GNSS Fix)',
+          ),
         ],
       ),
     );
   }
 
   Widget _collarRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        children: [
-          SizedBox(
-            width: 80,
-            child: Text(
-              label,
-              style: const TextStyle(
-                color: AppColors.textSecondary,
-                fontSize: Uc02Constants.minLabelFontSize,
-              ),
-            ),
-          ),
-          Text(
-            value,
-            style: const TextStyle(
-              color: AppColors.textPrimary,
-              fontSize: Uc02Constants.minBodyFontSize,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _OpenRespondButton extends StatelessWidget {
-  final AlertDetail detail;
-  const _OpenRespondButton({required this.detail});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: SizedBox(
-        width: double.infinity,
-        height: Uc02Constants.primaryButtonHeight,
-        child: ElevatedButton.icon(
-          onPressed: () => Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (_) => RespondNavigateScreen(alertId: detail.id),
-            ),
-          ),
-          icon: const Icon(Icons.directions_run_rounded),
-          label: const Text(
-            'VIEW RESPONSE DETAILS',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-          ),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: AppColors.primary,
-            foregroundColor: Colors.white,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _DeclineDialog extends StatefulWidget {
-  final String alertId;
-  final AlertStatus currentStatus;
-  final AlertsProvider provider;
-
-  const _DeclineDialog({
-    required this.alertId,
-    required this.currentStatus,
-    required this.provider,
-  });
-
-  @override
-  State<_DeclineDialog> createState() => _DeclineDialogState();
-}
-
-class _DeclineDialogState extends State<_DeclineDialog> {
-  String? _selectedReason;
-  final _otherController = TextEditingController();
-  bool _isSubmitting = false;
-
-  @override
-  void dispose() {
-    _otherController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text(
-        'Cannot Respond',
-        style: TextStyle(fontWeight: FontWeight.bold),
-      ),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Select a reason:',
-            style: TextStyle(fontSize: Uc02Constants.minBodyFontSize),
-          ),
-          const SizedBox(height: 8),
-          ...Uc02Constants.declineReasons.map((reason) {
-            return RadioListTile<String>(
-              value: reason,
-              groupValue: _selectedReason,
-              title: Text(reason,
-                  style: const TextStyle(
-                      fontSize: Uc02Constants.minBodyFontSize)),
-              onChanged: (v) => setState(() => _selectedReason = v),
-              contentPadding: EdgeInsets.zero,
-              dense: true,
-            );
-          }),
-          if (_selectedReason == 'Other') ...[
-            const SizedBox(height: 8),
-            TextField(
-              controller: _otherController,
-              decoration: const InputDecoration(
-                hintText: 'Describe the reason (optional)',
-                border: OutlineInputBorder(),
-              ),
-              maxLines: 2,
-            ),
-          ],
-        ],
-      ),
-      actions: [
-        TextButton(
-          onPressed: _isSubmitting ? null : () => Navigator.pop(context),
-          child: const Text('Cancel'),
-        ),
-        ElevatedButton(
-          onPressed: _selectedReason == null || _isSubmitting
-              ? null
-              : () => _submit(context),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: AppColors.failedRed,
-            foregroundColor: Colors.white,
-          ),
-          child: _isSubmitting
-              ? const SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(
-                      strokeWidth: 2, color: Colors.white))
-              : const Text('Decline'),
-        ),
+    return Row(
+      children: [
+        Text(label, style: const TextStyle(fontSize: 13, color: Color(0xFF64748B))),
+        const Spacer(),
+        Text(value, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
       ],
     );
   }
 
-  Future<void> _submit(BuildContext context) async {
-    setState(() => _isSubmitting = true);
-    final reason = _selectedReason == 'Other' && _otherController.text.isNotEmpty
-        ? 'Other: ${_otherController.text.trim()}'
-        : _selectedReason!;
-
-    await widget.provider.performAction(
-      alertId: widget.alertId,
-      currentStatus: widget.currentStatus,
-      type: ActionType.decline,
-      payload: {'reason': reason},
-    );
-
-    if (context.mounted) {
-      Navigator.pop(context); // close dialog
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-              'Decline recorded. Alert will be reassigned to another ranger.'),
+  Widget _buildActionButtons(BuildContext context, AlertDetail detail, AlertsProvider provider) {
+    // If the alert is resolved, remove continue to navigation button and display resolved indicator
+    if (detail.status == AlertStatus.resolved) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+        decoration: BoxDecoration(
+          color: const Color(0xFFECFDF5),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: const Color(0xFFA7F3D0)),
         ),
-      );
-    }
-  }
-}
-
-class _ErrorBody extends StatelessWidget {
-  final String message;
-  final VoidCallback onRetry;
-  const _ErrorBody({required this.message, required this.onRetry});
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
+        child: const Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.error_outline_rounded,
-                size: 64, color: AppColors.failedRed),
-            const SizedBox(height: 16),
-            Text(message,
-                textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 16)),
-            const SizedBox(height: 24),
-            ElevatedButton.icon(
-              onPressed: onRetry,
-              icon: const Icon(Icons.refresh_rounded),
-              label: const Text('Retry'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                foregroundColor: Colors.white,
-                minimumSize:
-                    const Size(double.infinity, Uc02Constants.primaryButtonHeight),
+            Icon(Icons.check_circle_rounded, color: Color(0xFF0D6838), size: 20),
+            SizedBox(width: 8),
+            Text(
+              'ALERT RESOLVED',
+              style: TextStyle(
+                fontSize: 14.5,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF065F46),
+                letterSpacing: 0.5,
               ),
             ),
           ],
         ),
+      );
+    }
+
+    if (detail.status == AlertStatus.notified) {
+      final isAcknowledgeInFlight = provider.isActionInFlight(detail.id, ActionType.acknowledge);
+      final isDeclineInFlight = provider.isActionInFlight(detail.id, ActionType.decline);
+
+      return Column(
+        children: [
+          // Primary ACKNOWLEDGE Button
+          SizedBox(
+            width: double.infinity,
+            height: 48,
+            child: ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF0D6838),
+                foregroundColor: Colors.white,
+                elevation: 0,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              onPressed: isAcknowledgeInFlight ? null : () => _acknowledge(context, detail, provider),
+              child: isAcknowledgeInFlight
+                  ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  : const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.check_rounded, size: 20),
+                        SizedBox(width: 8),
+                        Text('ACKNOWLEDGE', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+                      ],
+                    ),
+            ),
+          ),
+          const SizedBox(height: 10),
+
+          // Secondary CANNOT RESPOND Button
+          SizedBox(
+            width: double.infinity,
+            height: 48,
+            child: OutlinedButton(
+              style: OutlinedButton.styleFrom(
+                foregroundColor: const Color(0xFF0F172A),
+                side: const BorderSide(color: Color(0xFF0F172A), width: 1.5),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              onPressed: isDeclineInFlight ? null : () => _decline(context, detail, provider),
+              child: const Text('CANNOT RESPOND', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+            ),
+          ),
+        ],
+      );
+    }
+
+    // If active and acknowledged/dispatched/on scene, show navigate button
+    return SizedBox(
+      width: double.infinity,
+      height: 48,
+      child: ElevatedButton(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: const Color(0xFF0D6838),
+          foregroundColor: Colors.white,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+        onPressed: () {
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(builder: (_) => RespondNavigateScreen(alertId: detail.id)),
+          );
+        },
+        child: const Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text('CONTINUE TO NAVIGATION', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+            SizedBox(width: 8),
+            Icon(Icons.arrow_forward_rounded, size: 20),
+          ],
+        ),
       ),
     );
+  }
+
+  Future<void> _acknowledge(BuildContext context, AlertDetail detail, AlertsProvider provider) async {
+    final nextStatus = await provider.performAction(
+      alertId: detail.id,
+      currentStatus: detail.status,
+      type: ActionType.acknowledge,
+    );
+
+    if (!context.mounted) return;
+    if (nextStatus != null) {
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (_) => RespondNavigateScreen(alertId: detail.id)),
+      );
+    } else if (provider.errorMessage != null) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(provider.errorMessage!)));
+      provider.clearError();
+    }
+  }
+
+  Future<void> _decline(BuildContext context, AlertDetail detail, AlertsProvider provider) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Cannot Respond?'),
+        content: const Text('This alert will be reassigned to the next available ranger in your sector.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('CANCEL')),
+          TextButton(onPressed: () => Navigator.of(ctx).pop(true), child: const Text('CONFIRM', style: TextStyle(color: Colors.red))),
+        ],
+      ),
+    );
+
+    if (confirmed == true && context.mounted) {
+      final next = await provider.performAction(
+        alertId: detail.id,
+        currentStatus: detail.status,
+        type: ActionType.decline,
+      );
+      if (!context.mounted) return;
+      if (next != null) {
+        Navigator.of(context).pop();
+      }
+    }
+  }
+
+  Widget _fieldLabel(String text) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 2),
+      child: Text(text, style: const TextStyle(fontSize: 12, color: Color(0xFF64748B))),
+    );
+  }
+
+  Widget _fieldValue(String text) {
+    return Text(text, style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)));
+  }
+
+  String _formatTime(DateTime dt) {
+    final local = dt.toLocal();
+    final hour = local.hour == 0 ? 12 : (local.hour > 12 ? local.hour - 12 : local.hour);
+    final minute = local.minute.toString().padLeft(2, '0');
+    final period = local.hour >= 12 ? 'PM' : 'AM';
+    return '$hour:$minute $period';
   }
 }

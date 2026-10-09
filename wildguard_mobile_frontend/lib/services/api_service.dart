@@ -22,6 +22,13 @@ class ApiService {
     authToken = token;
   }
 
+  /// Default headers including authorization token when present.
+  Map<String, String> get authHeaders => {
+        'Content-Type': 'application/json',
+        if (authToken != null && authToken!.isNotEmpty)
+          'Authorization': 'Bearer $authToken',
+      };
+
   /// Authenticates a Ranger against POST /api/auth/login
   Future<Map<String, dynamic>> login(String username, String password) async {
     try {

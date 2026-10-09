@@ -46,9 +46,10 @@ void _assertActionAllowed(ActionType type, AlertStatus currentStatus) {
       }
       break;
     case ActionType.arrived:
-      if (currentStatus != AlertStatus.inProgress) {
+      if (currentStatus != AlertStatus.inProgress &&
+          currentStatus != AlertStatus.pendingResolution) {
         throw ValidationException(
-          'ARRIVED is only allowed in IN_PROGRESS status.',
+          'ARRIVED is only allowed in IN_PROGRESS or PENDING_RESOLUTION status.',
         );
       }
       break;
@@ -106,7 +107,9 @@ class AlertActionRepositoryImpl implements AlertActionRepository {
     if (online) {
       try {
         await _callApi(alertId, type, payload, token);
-        final next = _nextStatus(type);
+        final next = (currentStatus == AlertStatus.pendingResolution && type == ActionType.arrived)
+            ? AlertStatus.pendingResolution
+            : _nextStatus(type);
         await _local.updateAlertStatus(alertId, next.toJson());
         debugPrint('[UC02] Action ${type.toJson()} on $alertId → $next (online)');
         return next;
