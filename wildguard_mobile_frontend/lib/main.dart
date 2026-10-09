@@ -11,6 +11,7 @@ import 'services/database_service.dart';
 import 'services/location_service.dart';
 import 'viewmodels/auth_manager.dart';
 import 'viewmodels/offline_sync_manager.dart';
+import 'features/uc02_alerts/presentation/providers/alerts_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -29,6 +30,18 @@ void main() async {
   final authManager = AuthManager(apiService: apiService);
   await authManager.tryRestoreSession();
 
+  bool isOnline = true;
+  connectivityService.isOnline().then((v) => isOnline = v);
+  connectivityService.onConnectivityChanged.listen((v) => isOnline = v);
+
+  final alertsProvider = buildAlertsProvider(
+    tokenGetter: () => apiService.authToken,
+    isOnlineGetter: () => isOnline,
+    connectivityService: connectivityService,
+    locationService: locationService,
+  );
+  await alertsProvider.initialise();
+
   runApp(
     MultiProvider(
       providers: [
@@ -43,6 +56,9 @@ void main() async {
           )
             ..loadIncidents(fetchRemote: true)
             ..startBackgroundSyncWorker(),
+        ),
+        ChangeNotifierProvider<AlertsProvider>.value(
+          value: alertsProvider,
         ),
       ],
       child: WildGuardApp(

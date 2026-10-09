@@ -10,6 +10,7 @@ import 'placeholders/community_alerts_placeholder_screen.dart';
 import 'placeholders/community_placeholder_screen.dart';
 import 'placeholders/geofence_placeholder_screen.dart';
 import 'sync_manager_screen.dart';
+import '../features/uc02_alerts/presentation/screens/alerts_list_screen.dart';
 
 /// Navigation destination model bound to specific roles.
 class _RoleNavDestination {
@@ -95,6 +96,12 @@ class _HomeNavigationScreenState extends State<HomeNavigationScreen> {
           label: AppStrings.tabSyncManager,
           icon: Icons.sync_outlined,
           activeIcon: Icons.sync_rounded,
+        ),
+        const _RoleNavDestination(
+          screen: AlertsListScreen(),
+          label: 'Alerts',
+          icon: Icons.notifications_active_outlined,
+          activeIcon: Icons.notifications_active_rounded,
         ),
       ];
     }
