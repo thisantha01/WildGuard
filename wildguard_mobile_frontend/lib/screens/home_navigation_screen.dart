@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-
 import '../core/constants/app_colors.dart';
 import '../core/constants/app_strings.dart';
 import '../viewmodels/auth_manager.dart';
@@ -11,7 +10,7 @@ import 'placeholders/community_alerts_placeholder_screen.dart';
 import 'placeholders/community_placeholder_screen.dart';
 import 'placeholders/geofence_placeholder_screen.dart';
 import 'sync_manager_screen.dart';
-import 'community_workspaces.dart';
+import '../features/uc02_alerts/presentation/screens/alerts_list_screen.dart';
 
 /// Navigation destination model bound to specific roles.
 class _RoleNavDestination {
@@ -41,22 +40,7 @@ class _HomeNavigationScreenState extends State<HomeNavigationScreen> {
 
   /// Returns only the destinations authorized for the specified role.
   List<_RoleNavDestination> _getDestinationsForRole(String role) {
-    if (role.contains('VILLAGER')) {
-      return [
-        const _RoleNavDestination(
-          screen: CommunityAlertsPlaceholderScreen(),
-          label: 'Community Alerts',
-          icon: Icons.campaign_outlined,
-          activeIcon: Icons.campaign_rounded,
-        ),
-        _RoleNavDestination(
-          screen: LogIncidentScreen(villagerMode: true),
-          label: 'Report Incident',
-          icon: Icons.add_location_alt_outlined,
-          activeIcon: Icons.add_location_alt_rounded,
-        ),
-      ];
-    } else if (role.contains('MANAGER')) {
+    if (role.contains('MANAGER')) {
       // Park Manager: Supervisory view for Analytics & Sensor Geofences
       return const [
         _RoleNavDestination(
@@ -82,7 +66,7 @@ class _HomeNavigationScreenState extends State<HomeNavigationScreen> {
           activeIcon: Icons.report_problem_rounded,
         ),
         _RoleNavDestination(
-          screen: LiaisonAlertsManagementScreen(),
+          screen: CommunityAlertsPlaceholderScreen(),
           label: 'Villager Alerts',
           icon: Icons.campaign_outlined,
           activeIcon: Icons.campaign_rounded,
@@ -112,6 +96,12 @@ class _HomeNavigationScreenState extends State<HomeNavigationScreen> {
           label: AppStrings.tabSyncManager,
           icon: Icons.sync_outlined,
           activeIcon: Icons.sync_rounded,
+        ),
+        const _RoleNavDestination(
+          screen: AlertsListScreen(),
+          label: 'Alerts',
+          icon: Icons.notifications_active_outlined,
+          activeIcon: Icons.notifications_active_rounded,
         ),
       ];
     }
