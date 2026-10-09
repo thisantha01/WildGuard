@@ -1,8 +1,6 @@
 import 'dart:convert';
-
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-
 import '../core/errors/app_exception.dart';
 import '../models/user_auth_model.dart';
 import '../services/api_service.dart';
@@ -31,8 +29,7 @@ class AuthManager extends ChangeNotifier {
       final prefs = await SharedPreferences.getInstance();
       final raw = prefs.getString(_sessionKey);
       if (raw != null && raw.isNotEmpty) {
-        final Map<String, dynamic> data =
-            jsonDecode(raw) as Map<String, dynamic>;
+        final Map<String, dynamic> data = jsonDecode(raw) as Map<String, dynamic>;
         _currentUser = UserAuthModel.fromJson(data);
         if (_currentUser?.token != null && _currentUser!.token.isNotEmpty) {
           apiService.setAuthToken(_currentUser!.token);
@@ -67,9 +64,7 @@ class AuthManager extends ChangeNotifier {
 
   String get rangerDisplayName {
     if (_currentUser != null) {
-      final badge = _currentUser!.badgeNumber != null
-          ? ' (${_currentUser!.badgeNumber})'
-          : '';
+      final badge = _currentUser!.badgeNumber != null ? ' (${_currentUser!.badgeNumber})' : '';
       return '${_currentUser!.fullName}$badge';
     }
     return 'Field Ranger (Offline Mode)';
@@ -120,13 +115,9 @@ class AuthManager extends ChangeNotifier {
     required String fullName,
     String? badgeNumber,
     String? assignedPark,
-    String? phoneNumber,
     String role = 'RANGER',
   }) async {
-    if (username.trim().isEmpty ||
-        email.trim().isEmpty ||
-        password.trim().isEmpty ||
-        fullName.trim().isEmpty) {
+    if (username.trim().isEmpty || email.trim().isEmpty || password.trim().isEmpty || fullName.trim().isEmpty) {
       _errorMessage = 'Please fill in all mandatory fields.';
       notifyListeners();
       return false;
@@ -144,7 +135,6 @@ class AuthManager extends ChangeNotifier {
         fullName: fullName,
         badgeNumber: badgeNumber,
         assignedPark: assignedPark,
-        phoneNumber: phoneNumber,
         role: role,
       );
       _currentUser = UserAuthModel.fromJson(response);

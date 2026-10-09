@@ -22,6 +22,8 @@ class AppConstants {
   static const String rangerProfileEndpoint = '/rangers/me';
   static const String syncEndpoint = '/incidents/sync';
   static const String batchSyncEndpoint = '/incidents/sync/batch';
+  static const String incidentHistoryEndpoint = '/incidents/my-history';
+  static const String nextBadgeEndpoint = '/auth/next-badge';
 
   // Mock / Default Coordinates for Offline Map Pin (e.g. Yala National Park Sector)
   static const double defaultReserveLatitude = 6.3685;

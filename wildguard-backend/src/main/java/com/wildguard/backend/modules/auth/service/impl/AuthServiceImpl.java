@@ -71,7 +71,6 @@ public class AuthServiceImpl implements AuthService {
                 .role(savedUser.getRole())
                 .badgeNumber(savedUser.getBadgeNumber())
                 .assignedPark(savedUser.getAssignedPark())
-                .phoneNumber(savedUser.getPhoneNumber())
                 .build();
     }
 
@@ -99,7 +98,6 @@ public class AuthServiceImpl implements AuthService {
                 .role(user.getRole())
                 .badgeNumber(user.getBadgeNumber())
                 .assignedPark(user.getAssignedPark())
-                .phoneNumber(user.getPhoneNumber())
                 .build();
     }
 
@@ -112,9 +110,6 @@ public class AuthServiceImpl implements AuthService {
                 break;
             case ROLE_LIAISON:
                 prefix = "WG-LIA-";
-                break;
-            case ROLE_VILLAGER:
-                prefix = "WG-VIL-";
                 break;
             case ROLE_RANGER:
             default:

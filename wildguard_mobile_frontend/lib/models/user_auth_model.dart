@@ -7,7 +7,6 @@ class UserAuthModel {
   final String role;
   final String? badgeNumber;
   final String? assignedPark;
-  final String? phoneNumber;
   final String token;
 
   const UserAuthModel({
@@ -18,7 +17,6 @@ class UserAuthModel {
     required this.role,
     this.badgeNumber,
     this.assignedPark,
-    this.phoneNumber,
     required this.token,
   });
 
@@ -31,7 +29,6 @@ class UserAuthModel {
       role: json['role'] as String? ?? 'ROLE_RANGER',
       badgeNumber: json['badgeNumber'] as String?,
       assignedPark: json['assignedPark'] as String?,
-      phoneNumber: json['phoneNumber'] as String?,
       token: json['token'] as String? ?? '',
     );
   }
@@ -45,7 +42,6 @@ class UserAuthModel {
       'role': role,
       'badgeNumber': badgeNumber,
       'assignedPark': assignedPark,
-      'phoneNumber': phoneNumber,
       'token': token,
     };
   }

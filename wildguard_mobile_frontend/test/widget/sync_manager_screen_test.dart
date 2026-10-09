@@ -95,7 +95,7 @@ void main() {
     );
     await tester.pump();
 
-    expect(find.text(AppStrings.emptyIncidentListText), findsOneWidget);
+    expect(find.textContaining('No incidents recorded on this device yet.'), findsOneWidget);
     expect(find.text('Fetch My Reports from Base Station'), findsOneWidget);
   });
 

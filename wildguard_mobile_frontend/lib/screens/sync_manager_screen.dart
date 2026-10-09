@@ -219,9 +219,11 @@ class SyncManagerScreen extends StatelessWidget {
                             children: [
                               Icon(Icons.inventory_2_outlined, size: 64, color: Colors.grey.shade400),
                               const SizedBox(height: 12),
-                              const Text(
-                                AppStrings.emptyIncidentListText,
-                                style: TextStyle(color: AppColors.textSecondary, fontSize: 15),
+                              Text(
+                                isUnauthenticated
+                                    ? 'No incidents recorded on this device yet.\nLog in to fetch your reports from the base station.'
+                                    : 'No incidents recorded on this device yet.\nReports synced as "${authManager.currentUser?.username ?? 'unknown'}" will appear here.',
+                                style: const TextStyle(color: AppColors.textSecondary, fontSize: 15),
                                 textAlign: TextAlign.center,
                               ),
                               const SizedBox(height: 16),
@@ -229,12 +231,30 @@ class SyncManagerScreen extends StatelessWidget {
                                 onPressed: manager.isLoading
                                     ? null
                                     : () async {
+                                        final beforeCount = manager.incidents.length;
                                         await manager.loadIncidents(fetchRemote: true);
-                                        if (context.mounted && manager.incidents.isEmpty) {
+                                        if (!context.mounted) return;
+                                        final afterCount = manager.incidents.length;
+                                        final fetched = afterCount - beforeCount;
+                                        final username = authManager.currentUser?.username ?? 'unknown';
+                                        if (afterCount == 0) {
                                           ScaffoldMessenger.of(context).showSnackBar(
-                                            const SnackBar(
-                                              content: Text('No previous reports found on base station server.'),
-                                              duration: Duration(seconds: 2),
+                                            SnackBar(
+                                              content: Text(
+                                                isUnauthenticated
+                                                    ? 'Please log in first to fetch your reports.'
+                                                    : 'No reports found for "$username" on the base station server.',
+                                              ),
+                                              duration: const Duration(seconds: 3),
+                                              behavior: SnackBarBehavior.floating,
+                                            ),
+                                          );
+                                        } else if (fetched > 0) {
+                                          ScaffoldMessenger.of(context).showSnackBar(
+                                            SnackBar(
+                                              content: Text('Restored $fetched report(s) for "$username" from base station.'),
+                                              backgroundColor: AppColors.syncedGreen,
+                                              duration: const Duration(seconds: 2),
                                               behavior: SnackBarBehavior.floating,
                                             ),
                                           );

@@ -4,6 +4,7 @@ import 'dart:io';
 import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:image_picker/image_picker.dart';
+import '../core/constants/app_constants.dart';
 import '../core/errors/app_exception.dart';
 import '../models/incident_model.dart';
 import '../models/incident_severity.dart';
@@ -95,6 +96,24 @@ class OfflineSyncManager extends ChangeNotifier {
   String? get photoPath => _photoPath;
   String? get photoBase64 => _photoBase64;
 
+  String? _locationSource;
+  String? get locationSource => _locationSource;
+
+  // Last Known Location (LKL) telemetry cache
+  double? _lastKnownLatitude;
+  double? _lastKnownLongitude;
+  DateTime? _lastKnownLocationTime;
+
+  double? get lastKnownLatitude => _lastKnownLatitude;
+  double? get lastKnownLongitude => _lastKnownLongitude;
+  DateTime? get lastKnownLocationTime => _lastKnownLocationTime;
+
+  int get lastKnownMinutesAgo {
+    if (_lastKnownLocationTime == null) return 10;
+    final diff = DateTime.now().difference(_lastKnownLocationTime!).inMinutes;
+    return diff > 0 ? diff : 5;
+  }
+
   // Setters for Form UI
   void setIncidentType(IncidentType type) {
     _selectedType = type;
@@ -111,7 +130,45 @@ class OfflineSyncManager extends ChangeNotifier {
     _latitude = lat;
     _longitude = lon;
     _isGpsLost = false;
+    _locationSource = 'Map Tap Pin';
     notifyListeners();
+  }
+
+  /// Sets location based on pre-mapped reserve sector / landmark (HCI Fallback) with optional offset.
+  void setSectorLocation(String sectorName, double lat, double lon, [String? offset]) {
+    _latitude = lat;
+    _longitude = lon;
+    _isGpsLost = false;
+    if (offset != null && offset.isNotEmpty && offset != '0m') {
+      _locationSource = 'Landmark: $sectorName (Offset: $offset)';
+    } else {
+      _locationSource = 'Sector: $sectorName';
+    }
+    notifyListeners();
+  }
+
+  /// Manually toggles GPS lost state (for simulation / testing under dense canopy).
+  void toggleGpsLost() {
+    _isGpsLost = !_isGpsLost;
+    if (_isGpsLost) {
+      _locationSource = 'GPS Lost (Signal Obstructed)';
+    } else {
+      _locationSource = 'GPS Satellite Lock';
+    }
+    notifyListeners();
+  }
+
+  /// Sets GPS lost state explicitly.
+  void setGpsLost(bool lost) {
+    if (_isGpsLost != lost) {
+      _isGpsLost = lost;
+      if (lost) {
+        _locationSource = 'GPS Lost (Signal Obstructed)';
+      } else {
+        _locationSource = 'GPS Satellite Lock';
+      }
+      notifyListeners();
+    }
   }
 
   /// Clears transient snackbar messages.
@@ -147,7 +204,7 @@ class OfflineSyncManager extends ChangeNotifier {
     }
   }
 
-  /// Fetches real-time GPS coordinates. Falls back to "GPS Lost" if sensors/offline block reception.
+  /// Fetches real-time GPS coordinates. Falls back to "Last Known Location (LKL)" if sensors/canopy block reception.
   Future<bool> fetchLocation() async {
     _isLocating = true;
     notifyListeners();
@@ -157,10 +214,23 @@ class OfflineSyncManager extends ChangeNotifier {
       if (coords != null) {
         _latitude = coords['latitude'];
         _longitude = coords['longitude'];
+        _lastKnownLatitude = _latitude;
+        _lastKnownLongitude = _longitude;
+        _lastKnownLocationTime = DateTime.now();
         _isGpsLost = false;
+        _locationSource = 'GPS Satellite Lock';
         return true;
       } else {
         _isGpsLost = true;
+        // Last Known Location (LKL) Fallback
+        _latitude = _lastKnownLatitude ?? AppConstants.defaultReserveLatitude;
+        _longitude = _lastKnownLongitude ?? AppConstants.defaultReserveLongitude;
+        if (_lastKnownLatitude == null) {
+          _lastKnownLatitude = _latitude;
+          _lastKnownLongitude = _longitude;
+          _lastKnownLocationTime = DateTime.now().subtract(const Duration(minutes: 10));
+        }
+        _locationSource = 'Last Known Location (LKL) - ${lastKnownMinutesAgo}m ago';
         return false;
       }
     } finally {
@@ -176,6 +246,7 @@ class OfflineSyncManager extends ChangeNotifier {
     _longitude = fallback['longitude'];
     _isGpsLost = false;
     _isLocating = false;
+    _locationSource = 'Offline Reserve Pin';
     notifyListeners();
   }
 
@@ -215,6 +286,7 @@ class OfflineSyncManager extends ChangeNotifier {
     _latitude = null;
     _longitude = null;
     _isGpsLost = false;
+    _locationSource = null;
     _photoPath = null;
     _photoBase64 = null;
     notifyListeners();

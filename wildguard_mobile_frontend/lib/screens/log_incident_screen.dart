@@ -1,13 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
-
 import '../core/constants/app_colors.dart';
 import '../core/constants/app_constants.dart';
 import '../core/constants/app_strings.dart';
+import '../models/incident_severity.dart';
 import '../models/incident_type.dart';
 import '../viewmodels/auth_manager.dart';
-import '../viewmodels/community_conflict_manager.dart';
 import '../viewmodels/offline_sync_manager.dart';
 import '../widgets/location_picker_widget.dart';
 import '../widgets/offline_banner_widget.dart';
@@ -18,12 +17,10 @@ import 'login_screen.dart';
 /// Feature 1: The "Log Incident" Screen (HCI & UX Optimized for Field Rangers).
 class LogIncidentScreen extends StatefulWidget {
   final VoidCallback? onReturnToDashboard;
-  final bool villagerMode;
 
   const LogIncidentScreen({
     super.key,
     this.onReturnToDashboard,
-    this.villagerMode = false,
   });
 
   @override
@@ -32,8 +29,6 @@ class LogIncidentScreen extends StatefulWidget {
 
 class _LogIncidentScreenState extends State<LogIncidentScreen> {
   final TextEditingController _descriptionController = TextEditingController();
-  final TextEditingController _communityZoneController =
-      TextEditingController();
 
   @override
   void initState() {
@@ -56,7 +51,9 @@ class _LogIncidentScreenState extends State<LogIncidentScreen> {
             children: [
               Icon(Icons.warning_amber_rounded, color: Colors.white),
               SizedBox(width: 8),
-              Expanded(child: Text(AppStrings.gpsWarningText)),
+              Expanded(
+                child: Text(AppStrings.gpsWarningText),
+              ),
             ],
           ),
           backgroundColor: AppColors.pendingAmber,
@@ -70,30 +67,12 @@ class _LogIncidentScreenState extends State<LogIncidentScreen> {
   @override
   void dispose() {
     _descriptionController.dispose();
-    _communityZoneController.dispose();
     super.dispose();
   }
 
   void _onSaveOffline(BuildContext context, OfflineSyncManager manager) async {
     final messenger = ScaffoldMessenger.of(context);
-    final communityManager = widget.villagerMode
-        ? context.read<CommunityConflictManager>()
-        : null;
-    final reporterName =
-        context.read<AuthManager>().currentUser?.fullName ?? 'Community member';
-    final reporterPhone = context.read<AuthManager>().currentUser?.phoneNumber;
     final desc = _descriptionController.text.trim();
-
-    if (widget.villagerMode && _communityZoneController.text.trim().isEmpty) {
-      messenger.showSnackBar(
-        const SnackBar(
-          content: Text('Please enter your village or zone before submitting.'),
-          backgroundColor: AppColors.pendingAmber,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-      return;
-    }
 
     if (desc.isEmpty) {
       messenger.showSnackBar(
@@ -102,11 +81,7 @@ class _LogIncidentScreenState extends State<LogIncidentScreen> {
             children: [
               Icon(Icons.warning_amber_rounded, color: Colors.white),
               SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  'Please enter incident notes / description before saving.',
-                ),
-              ),
+              Expanded(child: Text('Please enter incident notes / description before saving.')),
             ],
           ),
           backgroundColor: AppColors.pendingAmber,
@@ -124,11 +99,7 @@ class _LogIncidentScreenState extends State<LogIncidentScreen> {
             children: [
               Icon(Icons.location_off, color: Colors.white),
               SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  'GPS coordinates are required. Please acquire GPS or drop a pin.',
-                ),
-              ),
+              Expanded(child: Text('GPS coordinates are required. Please acquire GPS or drop a pin.')),
             ],
           ),
           backgroundColor: AppColors.pendingAmber,
@@ -140,21 +111,14 @@ class _LogIncidentScreenState extends State<LogIncidentScreen> {
     }
 
     try {
-      final success = await manager.saveIncidentOffline(description: desc);
+      final success = await manager.saveIncidentOffline(
+        description: desc,
+      );
 
       if (!mounted) return;
 
       if (success) {
-        if (widget.villagerMode && manager.lastSavedIncident != null) {
-          await communityManager!.submitIncident(
-            manager.lastSavedIncident!,
-            reporterName: reporterName,
-            reporterPhone: reporterPhone,
-            zone: _communityZoneController.text.trim(),
-          );
-        }
         _descriptionController.clear();
-        if (widget.villagerMode) _communityZoneController.clear();
         messenger.showSnackBar(
           const SnackBar(
             content: Row(
@@ -177,11 +141,7 @@ class _LogIncidentScreenState extends State<LogIncidentScreen> {
               children: [
                 const Icon(Icons.error_outline, color: Colors.white),
                 const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    manager.errorMessage ?? 'Failed to save offline incident.',
-                  ),
-                ),
+                Expanded(child: Text(manager.errorMessage ?? 'Failed to save offline incident.')),
               ],
             ),
             backgroundColor: AppColors.failedRed,
@@ -217,7 +177,9 @@ class _LogIncidentScreenState extends State<LogIncidentScreen> {
       context: context,
       barrierDismissible: false,
       builder: (dialogCtx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
         titlePadding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
         contentPadding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
         title: Column(
@@ -235,10 +197,8 @@ class _LogIncidentScreenState extends State<LogIncidentScreen> {
               ),
             ),
             const SizedBox(height: 12),
-            Text(
-              widget.villagerMode
-                  ? 'Incident Report Saved'
-                  : 'Incident Saved to Device',
+            const Text(
+              'Incident Saved to Device',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 18,
@@ -247,10 +207,8 @@ class _LogIncidentScreenState extends State<LogIncidentScreen> {
               ),
             ),
             const SizedBox(height: 4),
-            Text(
-              widget.villagerMode
-                  ? 'Your report is queued for the response team'
-                  : 'Pending sync with base station',
+            const Text(
+              'Pending sync with base station',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 13,
@@ -281,10 +239,7 @@ class _LogIncidentScreenState extends State<LogIncidentScreen> {
                         Flexible(
                           child: Text(
                             incident.type.displayName,
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 14,
-                            ),
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
                           ),
                         ),
                         const SizedBox(width: 8),
@@ -303,26 +258,16 @@ class _LogIncidentScreenState extends State<LogIncidentScreen> {
                       incident.description,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        color: AppColors.textSecondary,
-                      ),
+                      style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
                     ),
                     const SizedBox(height: 6),
                     Row(
                       children: [
-                        const Icon(
-                          Icons.location_on,
-                          size: 13,
-                          color: AppColors.primary,
-                        ),
+                        const Icon(Icons.location_on, size: 13, color: AppColors.primary),
                         const SizedBox(width: 4),
                         Text(
                           '${incident.latitude.toStringAsFixed(4)}, ${incident.longitude.toStringAsFixed(4)}',
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: AppColors.textSecondary,
-                          ),
+                          style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
                         ),
                       ],
                     ),
@@ -339,9 +284,7 @@ class _LogIncidentScreenState extends State<LogIncidentScreen> {
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(vertical: 14),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(
-                    AppConstants.borderRadius,
-                  ),
+                  borderRadius: BorderRadius.circular(AppConstants.borderRadius),
                 ),
                 elevation: 2,
               ),
@@ -372,9 +315,7 @@ class _LogIncidentScreenState extends State<LogIncidentScreen> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppConstants.borderRadius),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppConstants.borderRadius)),
         title: const Row(
           children: [
             Icon(Icons.shield, color: AppColors.primary),
@@ -386,16 +327,11 @@ class _LogIncidentScreenState extends State<LogIncidentScreen> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Name: ${authManager.rangerDisplayName}',
-              style: const TextStyle(fontWeight: FontWeight.bold),
-            ),
+            Text('Name: ${authManager.rangerDisplayName}', style: const TextStyle(fontWeight: FontWeight.bold)),
             const SizedBox(height: 6),
             Text('Park: ${authManager.parkName}'),
             const SizedBox(height: 6),
-            Text(
-              'Auth: ${authManager.currentUser != null ? "Online Verified (JWT Active)" : "Offline Field Mode"}',
-            ),
+            Text('Auth: ${authManager.currentUser != null ? "Online Verified (JWT Active)" : "Offline Field Mode"}'),
             if (authManager.currentUser != null) ...[
               const SizedBox(height: 6),
               Text('Role: ${authManager.currentUser!.role}'),
@@ -409,10 +345,7 @@ class _LogIncidentScreenState extends State<LogIncidentScreen> {
             child: const Text('Close'),
           ),
           ElevatedButton.icon(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.failedRed,
-              foregroundColor: Colors.white,
-            ),
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.failedRed, foregroundColor: Colors.white),
             onPressed: () {
               Navigator.of(ctx).pop();
               authManager.logout();
@@ -437,16 +370,13 @@ class _LogIncidentScreenState extends State<LogIncidentScreen> {
     // Red offline alert banner appears ONLY if the device cannot sync with the database:
     // • Device is offline (no network)
     // • Or Ranger is working in offline guest mode / unauthenticated
-    final canSyncWithDatabase =
-        manager.isOnline &&
+    final canSyncWithDatabase = manager.isOnline &&
         authManager.isAuthenticated &&
         !authManager.isOfflineGuestMode;
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(
-          widget.villagerMode ? 'Report an Incident' : 'Log Field Incident',
-        ),
+        title: const Text('Log Field Incident'),
         backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
         elevation: 0,
@@ -462,7 +392,8 @@ class _LogIncidentScreenState extends State<LogIncidentScreen> {
       body: Column(
         children: [
           // Top HCI Alert Banner: High-urgency full-width RED banner shown ONLY when unable to sync
-          if (!canSyncWithDatabase) const OfflineBannerWidget(),
+          if (!canSyncWithDatabase)
+            const OfflineBannerWidget(),
 
           // Form Body
           Expanded(
@@ -471,28 +402,11 @@ class _LogIncidentScreenState extends State<LogIncidentScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  if (widget.villagerMode) ...[
-                    TextFormField(
-                      controller: _communityZoneController,
-                      decoration: const InputDecoration(
-                        labelText: 'Village / zone',
-                        hintText: 'Enter your village or sector',
-                        prefixIcon: Icon(Icons.home_work_outlined),
-                      ),
-                      validator: (value) =>
-                          value == null || value.trim().isEmpty
-                          ? 'Village or zone is required'
-                          : null,
-                    ),
-                    const SizedBox(height: 12),
-                  ],
                   // Incident Type Dropdown
                   Card(
                     elevation: 2,
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(
-                        AppConstants.borderRadius,
-                      ),
+                      borderRadius: BorderRadius.circular(AppConstants.borderRadius),
                       side: const BorderSide(color: AppColors.cardBorder),
                     ),
                     child: Padding(
@@ -504,10 +418,7 @@ class _LogIncidentScreenState extends State<LogIncidentScreen> {
                         child: DropdownButton<IncidentType>(
                           value: manager.selectedType,
                           isExpanded: true,
-                          icon: const Icon(
-                            Icons.arrow_drop_down,
-                            color: AppColors.primary,
-                          ),
+                          icon: const Icon(Icons.arrow_drop_down, color: AppColors.primary),
                           onChanged: (IncidentType? newType) {
                             if (newType != null) {
                               manager.setIncidentType(newType);
@@ -518,9 +429,7 @@ class _LogIncidentScreenState extends State<LogIncidentScreen> {
                               value: type,
                               child: Text(
                                 type.displayName,
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w600,
-                                ),
+                                style: const TextStyle(fontWeight: FontWeight.w600),
                               ),
                             );
                           }).toList(),
@@ -533,8 +442,7 @@ class _LogIncidentScreenState extends State<LogIncidentScreen> {
                   // Severity Selector Widget (HCI / Fitts's Law 2x2 Large Touch Targets)
                   SeveritySelectorWidget(
                     selectedSeverity: manager.selectedSeverity,
-                    onSeverityChanged: (sev) =>
-                        manager.setIncidentSeverity(sev),
+                    onSeverityChanged: (sev) => manager.setIncidentSeverity(sev),
                   ),
                   const SizedBox(height: 12),
 
@@ -542,15 +450,11 @@ class _LogIncidentScreenState extends State<LogIncidentScreen> {
                   Card(
                     elevation: 2,
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(
-                        AppConstants.borderRadius,
-                      ),
+                      borderRadius: BorderRadius.circular(AppConstants.borderRadius),
                       side: const BorderSide(color: AppColors.cardBorder),
                     ),
                     child: Padding(
-                      padding: const EdgeInsets.all(
-                        AppConstants.standardPadding,
-                      ),
+                      padding: const EdgeInsets.all(AppConstants.standardPadding),
                       child: TextField(
                         controller: _descriptionController,
                         maxLines: 3,
@@ -565,12 +469,14 @@ class _LogIncidentScreenState extends State<LogIncidentScreen> {
                   ),
                   const SizedBox(height: 12),
 
-                  // Location Section (HCI Map placeholder + [ Drop Pin on Offline Map ])
+                  // Location Section (HCI Map + Complete Offline Fallback Suite)
                   LocationPickerWidget(
                     latitude: manager.latitude,
                     longitude: manager.longitude,
                     isGpsLost: manager.isGpsLost,
                     isLocating: manager.isLocating,
+                    locationSource: manager.locationSource,
+                    lastKnownMinutesAgo: manager.lastKnownMinutesAgo,
                     onFetchGps: () async {
                       final success = await manager.fetchLocation();
                       if (!success && mounted) {
@@ -578,14 +484,9 @@ class _LogIncidentScreenState extends State<LogIncidentScreen> {
                           const SnackBar(
                             content: Row(
                               children: [
-                                Icon(
-                                  Icons.warning_amber_rounded,
-                                  color: Colors.white,
-                                ),
+                                Icon(Icons.warning_amber_rounded, color: Colors.white),
                                 SizedBox(width: 8),
-                                Expanded(
-                                  child: Text(AppStrings.gpsWarningText),
-                                ),
+                                Expanded(child: Text(AppStrings.gpsWarningText)),
                               ],
                             ),
                             backgroundColor: AppColors.pendingAmber,
@@ -596,8 +497,9 @@ class _LogIncidentScreenState extends State<LogIncidentScreen> {
                       }
                     },
                     onDropPin: () => manager.dropPinOnOfflineMap(),
-                    onLocationChanged: (lat, lon) =>
-                        manager.setCoordinates(lat, lon),
+                    onToggleGpsLost: () => manager.toggleGpsLost(),
+                    onLocationChanged: (lat, lon) => manager.setCoordinates(lat, lon),
+                    onSectorSelected: (name, lat, lon, [offset]) => manager.setSectorLocation(name, lat, lon, offset),
                   ),
                   const SizedBox(height: 12),
 
@@ -606,8 +508,7 @@ class _LogIncidentScreenState extends State<LogIncidentScreen> {
                     photoPath: manager.photoPath,
                     photoBase64: manager.photoBase64,
                     onTakePhoto: () => manager.pickPhoto(ImageSource.camera),
-                    onSelectGallery: () =>
-                        manager.pickPhoto(ImageSource.gallery),
+                    onSelectGallery: () => manager.pickPhoto(ImageSource.gallery),
                     onClearPhoto: () => manager.clearPhoto(),
                   ),
                   const SizedBox(height: 20),
@@ -619,21 +520,14 @@ class _LogIncidentScreenState extends State<LogIncidentScreen> {
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.primary,
                       foregroundColor: Colors.white,
-                      minimumSize: const Size(
-                        double.infinity,
-                        AppConstants.largeTouchTargetHeight,
-                      ),
+                      minimumSize: const Size(double.infinity, AppConstants.largeTouchTargetHeight),
                       elevation: 3,
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(
-                          AppConstants.borderRadius,
-                        ),
+                        borderRadius: BorderRadius.circular(AppConstants.borderRadius),
                       ),
                     ),
-                    child: Text(
-                      widget.villagerMode
-                          ? 'SUBMIT INCIDENT REPORT'
-                          : AppStrings.saveOfflineButtonText,
+                    child: const Text(
+                      AppStrings.saveOfflineButtonText,
                       style: TextStyle(
                         fontSize: 16.0,
                         fontWeight: FontWeight.bold,

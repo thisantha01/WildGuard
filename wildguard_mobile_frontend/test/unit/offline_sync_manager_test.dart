@@ -6,6 +6,7 @@ import 'package:wildguard_mobile_frontend/models/incident_type.dart';
 import 'package:wildguard_mobile_frontend/models/sync_status.dart';
 import 'package:wildguard_mobile_frontend/repositories/incident_repository.dart';
 import 'package:wildguard_mobile_frontend/services/connectivity_service.dart';
+import 'package:wildguard_mobile_frontend/models/reserve_sector_model.dart';
 import 'package:wildguard_mobile_frontend/services/location_service.dart';
 import 'package:wildguard_mobile_frontend/viewmodels/offline_sync_manager.dart';
 
@@ -296,5 +297,72 @@ void main() {
       expect(manager.incidents.first.syncStatus, SyncStatus.synced);
       expect(manager.errorMessage, isNull);
     });
+
+    test('setSectorLocation sets coordinates and records locationSource', () {
+      manager.setSectorLocation('Menik River Crossing Beat', 6.3685, 81.5273);
+
+      expect(manager.latitude, 6.3685);
+      expect(manager.longitude, 81.5273);
+      expect(manager.isGpsLost, isFalse);
+      expect(manager.locationSource, 'Sector: Menik River Crossing Beat');
+    });
+
+    test('setSectorLocation with offset calculates and records landmark offset reference', () {
+      manager.setSectorLocation('Trail Marker 14 (Menik River)', 6.3698, 81.5286, '200 meters North-East');
+
+      expect(manager.latitude, 6.3698);
+      expect(manager.longitude, 81.5286);
+      expect(manager.isGpsLost, isFalse);
+      expect(manager.locationSource, 'Landmark: Trail Marker 14 (Menik River) (Offset: 200 meters North-East)');
+    });
+
+    test('fetchLocation falls back to Last Known Location (LKL) when live GPS is denied', () async {
+      // First, simulate successful GPS lock
+      locationService.mockCoordinates = {'latitude': 6.3721, 'longitude': 81.4012};
+      await manager.fetchLocation();
+      expect(manager.isGpsLost, isFalse);
+      expect(manager.locationSource, 'GPS Satellite Lock');
+
+      // Second, simulate GPS signal drop under dense tree canopy
+      locationService.mockCoordinates = null;
+      await manager.fetchLocation();
+
+      expect(manager.isGpsLost, isTrue);
+      expect(manager.latitude, 6.3721);
+      expect(manager.longitude, 81.4012);
+      expect(manager.locationSource, contains('Last Known Location (LKL)'));
+    });
+  });
+
+  group('ReserveSectorModel Geodetic Offset Tests', () {
+    test('computeOffsetCoordinates calculates accurate spherical geodetic offset for 200m North-East', () {
+      const baseLat = 6.3685;
+      const baseLon = 81.5273;
+      final result = ReserveSectorModel.computeOffsetCoordinates(
+        baseLat: baseLat,
+        baseLon: baseLon,
+        distanceMeters: 200.0,
+        direction: 'North-East',
+      );
+
+      // In North-East, latitude and longitude should both increase
+      expect(result['latitude']!, greaterThan(baseLat));
+      expect(result['longitude']!, greaterThan(baseLon));
+      // Delta should be approximately 200m * cos(45) / 111111 ~= 0.00127 degrees
+      expect((result['latitude']! - baseLat).abs(), closeTo(0.00127, 0.0002));
+    });
+
+    test('computeOffsetCoordinates returns base coordinates when distance is 0', () {
+      final result = ReserveSectorModel.computeOffsetCoordinates(
+        baseLat: 6.2715,
+        baseLon: 81.4428,
+        distanceMeters: 0.0,
+        direction: 'North',
+      );
+
+      expect(result['latitude'], 6.2715);
+      expect(result['longitude'], 81.4428);
+    });
   });
 }
+

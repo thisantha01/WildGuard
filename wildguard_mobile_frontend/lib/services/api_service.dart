@@ -1,7 +1,6 @@
 import 'dart:convert';
-
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
-
 import '../core/constants/app_constants.dart';
 import '../core/errors/app_exception.dart';
 import '../models/incident_model.dart';
@@ -12,20 +11,17 @@ class ApiService {
   final String baseUrl;
   String? authToken;
 
-  ApiService({http.Client? client, String? baseUrl, this.authToken})
-    : client = client ?? http.Client(),
-      baseUrl = baseUrl ?? AppConstants.defaultApiBaseUrl;
+  ApiService({
+    http.Client? client,
+    String? baseUrl,
+    this.authToken,
+  })  : client = client ?? http.Client(),
+        baseUrl = baseUrl ?? AppConstants.defaultApiBaseUrl;
 
   /// Sets active Ranger JWT authentication token.
   void setAuthToken(String? token) {
     authToken = token;
   }
-
-  Map<String, String> get authHeaders => {
-    'Content-Type': 'application/json',
-    if (authToken != null && authToken!.isNotEmpty)
-      'Authorization': 'Bearer $authToken',
-  };
 
   /// Authenticates a Ranger against POST /api/auth/login
   Future<Map<String, dynamic>> login(String username, String password) async {
@@ -69,7 +65,6 @@ class ApiService {
     required String fullName,
     String? badgeNumber,
     String? assignedPark,
-    String? phoneNumber,
     String role = 'RANGER',
   }) async {
     try {
@@ -85,7 +80,6 @@ class ApiService {
               'fullName': fullName.trim(),
               'badgeNumber': badgeNumber?.trim(),
               'assignedPark': assignedPark?.trim(),
-              'phoneNumber': phoneNumber?.trim(),
               'role': role,
             }),
           )
@@ -106,10 +100,7 @@ class ApiService {
     } on NetworkSyncException {
       rethrow;
     } catch (e) {
-      throw NetworkSyncException(
-        'Network error during registration',
-        e.toString(),
-      );
+      throw NetworkSyncException('Network error during registration', e.toString());
     }
   }
 
@@ -155,17 +146,14 @@ class ApiService {
     } on NetworkSyncException {
       rethrow;
     } catch (e) {
-      throw NetworkSyncException(
-        'Network error during incident synchronization: $e',
-        e.toString(),
-      );
+      throw NetworkSyncException('Network error during incident synchronization: $e', e.toString());
     }
   }
 
   /// Fetches next available badge ID from backend based on role
   Future<String> fetchNextBadgeNumber(String role) async {
     try {
-      final url = Uri.parse('$baseUrl/api/auth/next-badge?role=$role');
+      final url = Uri.parse('$baseUrl${AppConstants.nextBadgeEndpoint}?role=$role');
       final response = await client
           .get(url, headers: {'Content-Type': 'application/json'})
           .timeout(const Duration(seconds: 4));
@@ -184,9 +172,10 @@ class ApiService {
   Future<List<Map<String, dynamic>>> fetchMyIncidentHistory() async {
     try {
       if (authToken == null || authToken!.isEmpty) {
+        debugPrint('⚠️ [REMOTE HISTORY] Skipped: authToken is null or empty.');
         return [];
       }
-      final url = Uri.parse('$baseUrl/api/incidents/my-history');
+      final url = Uri.parse('$baseUrl${AppConstants.incidentHistoryEndpoint}');
       final headers = <String, String>{
         'Content-Type': 'application/json',
         'Authorization': 'Bearer $authToken',
@@ -198,10 +187,14 @@ class ApiService {
 
       if (response.statusCode == 200) {
         final List<dynamic> list = jsonDecode(response.body) as List<dynamic>;
+        debugPrint('📥 [REMOTE HISTORY] Successfully fetched ${list.length} reports from base station.');
         return list.map((item) => item as Map<String, dynamic>).toList();
+      } else {
+        debugPrint('⚠️ [REMOTE HISTORY] Server returned status ${response.statusCode}: ${response.body}');
+        return [];
       }
-      return [];
     } catch (e) {
+      debugPrint('❌ [REMOTE HISTORY ERROR] Failed to fetch remote history: $e');
       return [];
     }
   }
