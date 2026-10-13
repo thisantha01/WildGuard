@@ -1055,7 +1055,8 @@
                     );
                 }
 
-                if (d.role !== "ROLE_MANAGER") {
+                const role = String(d.role || "").toUpperCase();
+                if (role !== "ROLE_MANAGER" && role !== "MANAGER") {
                     throw new Error(
                         "Analytics is available to MANAGER accounts only."
                     );
@@ -1181,7 +1182,11 @@
                             sessionStorage.clear();
                         } catch (e) {}
 
-                        location.reload();
+                        state.token = "";
+                        $("loginErr").textContent =
+                            "Session expired or invalid credentials. Please sign in again.";
+                        $("loginErr").classList.remove("hidden");
+                        $("loginOverlay").classList.remove("hidden");
 
                         return;
                     }
@@ -1202,6 +1207,7 @@
 
                         throw new Error(
                             d.message ||
+                                d.error ||
                                 "Request failed " +
                                     r.status
                         );
@@ -1600,7 +1606,7 @@
                                     x =>
                                         SEV_COLOR[
                                             x.label
-                                        ]
+                                        ] || "#8fa89c"
                                 ),
 
                             borderRadius: 6
@@ -2034,7 +2040,7 @@
                         `<b>${h.count} incidents</b><br>
                         ${esc(
                             pretty(
-                                h.dominantType
+                                h.dominantType || "UNKNOWN"
                             )
                         )}<br>
                         Critical: ${h.criticalCount}<br>
@@ -2619,15 +2625,17 @@
                     );
                 }
 
-                ins.push(
-                    `${pretty(
-                        types[0].label
-                    )} is the most frequent incident type (${types[0].count} reports, ${Math.round(
-                        (types[0].count *
-                            100) /
-                            total
-                    )}% of all).`
-                );
+                if (types.length > 0) {
+                    ins.push(
+                        `${pretty(
+                            types[0].label
+                        )} is the most frequent incident type (${types[0].count} reports, ${Math.round(
+                            (types[0].count *
+                                100) /
+                                total
+                        )}% of all).`
+                    );
+                }
 
                 if (crit) {
 
